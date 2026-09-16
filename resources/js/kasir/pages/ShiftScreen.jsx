@@ -7,6 +7,14 @@ export default function ShiftScreen() {
     const navigate = useNavigate();
     const [amount, setAmount] = useState(300000);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [cashier, setCashier] = useState(null);
+
+    React.useEffect(() => {
+        const saved = localStorage.getItem('pos_cashier');
+        if (saved) {
+            setCashier(JSON.parse(saved));
+        }
+    }, []);
 
     const formatRupiah = (number) => {
         return new Intl.NumberFormat('id-ID').format(number);
@@ -37,8 +45,8 @@ export default function ShiftScreen() {
         setIsProcessing(true);
         try {
             const response = await apiClient.post('/shift/start', {
-                branch_id: 1, // default branch
-                user_id: 1, // default user
+                branch_id: cashier ? cashier.branch_id : 1,
+                user_id: cashier ? cashier.id : 1,
                 shift_type: 'Pagi',
                 opening_cash: amount
             });
@@ -46,10 +54,12 @@ export default function ShiftScreen() {
             if (response.status === 'success') {
                 navigate('/order');
             } else {
-                alert(response.message);
+                alert(response.message || 'Terjadi kesalahan.');
             }
         } catch (error) {
-            alert('Gagal membuka shift. ' + (error.response?.data?.message || 'Error jaringan.'));
+            // error.data tersedia karena apiClient kini menggunakan ApiError
+            const message = error.data?.message || error.message || 'Error jaringan.';
+            alert('Gagal membuka shift. ' + message);
         } finally {
             setIsProcessing(false);
         }
@@ -81,7 +91,7 @@ export default function ShiftScreen() {
                                             <span className="bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-bold">Shift Siang • Reguler</span>
                                         </div>
                                         <p className="font-body-md text-body-md text-on-surface-variant mt-0.5">
-                                            Kasir: <strong className="text-on-surface font-semibold">Budi Santoso</strong> • Waktu: <span className="text-on-surface">Rabu, 23 Okt 2024 • 16:30 WIB</span>
+                                            Kasir: <strong className="text-on-surface font-semibold">{cashier ? cashier.name : 'Kasir Utama'}</strong> • Waktu: <span className="text-on-surface">{new Date().toLocaleDateString('id-ID', {weekday: 'long', day: 'numeric', month: 'short', year: 'numeric'})} • {new Date().toLocaleTimeString('id-ID', {hour: '2-digit', minute: '2-digit'})} WIB</span>
                                         </p>
                                     </div>
                                 </div>

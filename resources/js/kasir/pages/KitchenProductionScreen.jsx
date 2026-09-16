@@ -1,76 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PosHeader from '../components/layout/PosHeader';
 
-const recipes = {
-    'tb-manis': {
-        title: 'Adonan Terang Bulan Manis',
-        unit: 'Ember',
-        litersPerBatch: 10,
-        yieldRange: (batch) => `Menghasilkan ± ${batch * 22} - ${batch * 24} loyang Terang Bulan Spesial`,
-        ingredients: {
-            tepung: { amount: 5.0, unit: 'kg', name: 'Tepung Terigu Cakra Kembar', stockLeft: 52.0 },
-            gula: { amount: 1.8, unit: 'kg', name: 'Gula Pasir Kristal Murni', stockLeft: 21.6 },
-            telurCount: 12,
-            telurKg: 0.7,
-            telurName: 'Telur Ayam Negeri Segar',
-            telurStock: 9.9,
-            butter: { amount: 0.6, unit: 'kg', name: 'Wijsman Butter & Margarin', stockLeft: 7.2 },
-            ragi: { amount: 90, unit: 'gram', name: 'Ragi Instan & Double Acting BP' },
-            air: { amount: 4.0, unit: 'Liter', name: 'Air Mineral RO Terfilter' }
-        }
-    },
-    'martabak-telur': {
-        title: 'Adonan Martabak Telur Renyah',
-        unit: 'Batch Kulit',
-        litersPerBatch: 5,
-        yieldRange: (batch) => `Menghasilkan ± ${batch * 50} bola adonan kulit renyah elastis`,
-        ingredients: {
-            tepung: { amount: 4.5, unit: 'kg', name: 'Tepung Terigu Segitiga Biru', stockLeft: 38.0 },
-            gula: { amount: 0.2, unit: 'kg', name: 'Gula Pasir Murni', stockLeft: 20.0 },
-            telurCount: 8,
-            telurKg: 0.5,
-            telurName: 'Telur Ayam Negeri Segar',
-            telurStock: 9.9,
-            butter: { amount: 1.2, unit: 'kg', name: 'Minyak Goreng & Minyak Samin', stockLeft: 12.0 },
-            ragi: { amount: 40, unit: 'gram', name: 'Garam Dapur & Penyedap' },
-            air: { amount: 2.2, unit: 'Liter', name: 'Air Mineral Hangat' }
-        }
-    },
-    'pandan-suji': {
-        title: 'Adonan Pandan Suji Asli',
-        unit: 'Ember 5L',
-        litersPerBatch: 5,
-        yieldRange: (batch) => `Menghasilkan ± ${batch * 11} - ${batch * 12} loyang Pandan Terang Bulan`,
-        ingredients: {
-            tepung: { amount: 2.5, unit: 'kg', name: 'Tepung Terigu Protein Sedang', stockLeft: 30.0 },
-            gula: { amount: 0.9, unit: 'kg', name: 'Gula Pasir Halus', stockLeft: 18.0 },
-            telurCount: 6,
-            telurKg: 0.35,
-            telurName: 'Telur Ayam Negeri Segar',
-            telurStock: 9.9,
-            butter: { amount: 0.3, unit: 'kg', name: 'Mentega Wijsman Blend', stockLeft: 6.0 },
-            ragi: { amount: 45, unit: 'gram', name: 'Ragi & Ekstrak Suji Hijau Asli' },
-            air: { amount: 2.0, unit: 'Liter', name: 'Perasan Jus Daun Pandan Suji' }
-        }
-    },
-    'red-velvet': {
-        title: 'Adonan Red Velvet Gourmet',
-        unit: 'Ember 5L',
-        litersPerBatch: 5,
-        yieldRange: (batch) => `Menghasilkan ± ${batch * 11} - ${batch * 12} loyang Red Velvet Gourmet`,
-        ingredients: {
-            tepung: { amount: 2.5, unit: 'kg', name: 'Tepung Terigu & Kakao Red', stockLeft: 28.0 },
-            gula: { amount: 1.0, unit: 'kg', name: 'Gula Pasir & Vanilla Bean', stockLeft: 16.0 },
-            telurCount: 6,
-            telurKg: 0.35,
-            telurName: 'Telur Ayam Negeri Segar',
-            telurStock: 9.9,
-            butter: { amount: 0.4, unit: 'kg', name: 'Pure French Butter Blend', stockLeft: 5.5 },
-            ragi: { amount: 50, unit: 'gram', name: 'Red Velvet Beet Extract & Buttermilk' },
-            air: { amount: 2.0, unit: 'Liter', name: 'Susu Cair Pasteurisasi' }
-        }
-    }
-};
+
 
 export default function KitchenProductionScreen() {
     const [activeRecipeKey, setActiveRecipeKey] = useState('tb-manis');
@@ -78,6 +9,9 @@ export default function KitchenProductionScreen() {
     const [toastMessage, setToastMessage] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [history, setHistory] = useState([]);
+
+    const [recipes, setRecipes] = useState({});
+    const [isLoadingRecipes, setIsLoadingRecipes] = useState(true);
 
     const loadHistory = async () => {
         try {
@@ -90,11 +24,30 @@ export default function KitchenProductionScreen() {
         }
     };
 
+    const loadRecipes = async () => {
+        setIsLoadingRecipes(true);
+        try {
+            const response = await window.apiClient.get('/kitchen/recipes');
+            if (response.status === 'success') {
+                setRecipes(response.data);
+                if (Object.keys(response.data).length > 0) {
+                    setActiveRecipeKey(Object.keys(response.data)[0]);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading recipes:', error);
+        } finally {
+            setIsLoadingRecipes(false);
+        }
+    };
+
     React.useEffect(() => {
         loadHistory();
+        loadRecipes();
     }, []);
 
     const recipe = recipes[activeRecipeKey];
+    if (isLoadingRecipes || !recipe) return <div className="p-10 text-center font-bold">Memuat Resep Dapur...</div>;
     const totalLiters = currentBatch * recipe.litersPerBatch;
 
     const adjustBatch = (delta) => {
@@ -205,59 +158,29 @@ export default function KitchenProductionScreen() {
                                             </div>
                                         </button>
 
-                                        {/* Card 2: Martabak Telur */}
-                                        <button onClick={() => setActiveRecipeKey('martabak-telur')} className={`text-left p-4 rounded-2xl transition-all duration-150 relative flex flex-col justify-between min-h-[148px] shadow-sm ${activeRecipeKey === 'martabak-telur' ? 'bg-surface-container-low translate-y-0.5' : 'bg-surface-container-lowest hover:bg-surface-container-low'}`} style={activeRecipeKey === 'martabak-telur' ? { boxShadow: '0 0 0 3px #d98e3f' } : {}} type="button">
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div className="w-12 h-12 rounded-xl bg-surface-container-high flex items-center justify-center shrink-0">
-                                                    <span className="material-symbols-outlined text-primary text-[28px]">lunch_dining</span>
-                                                </div>
-                                                <span className="font-label-sm text-label-sm bg-surface-container text-on-surface-variant px-2 py-0.5 rounded-full font-bold">Gurih Asin</span>
-                                            </div>
-                                            <div className="mt-3">
-                                                <h3 className="font-title-md text-title-md text-on-surface font-extrabold leading-snug">Adonan Martabak Telur</h3>
-                                                <p className="font-body-md text-body-md text-on-surface-variant mt-0.5">50 Porsi Bola Kulit Renyah Elastis</p>
-                                            </div>
-                                            <div className="mt-2 flex items-center justify-between font-label-sm text-label-sm">
-                                                <span className={`${activeRecipeKey === 'martabak-telur' ? 'text-primary' : 'text-on-surface-variant'} font-bold`}>Standard Yield: 50 bola</span>
-                                                <span className="w-2 h-2 rounded-full bg-tertiary"></span>
-                                            </div>
-                                        </button>
-
-                                        {/* Card 3: Pandan Suji Asli */}
-                                        <button onClick={() => setActiveRecipeKey('pandan-suji')} className={`text-left p-4 rounded-2xl transition-all duration-150 relative flex flex-col justify-between min-h-[148px] shadow-sm ${activeRecipeKey === 'pandan-suji' ? 'bg-surface-container-low translate-y-0.5' : 'bg-surface-container-lowest hover:bg-surface-container-low'}`} style={activeRecipeKey === 'pandan-suji' ? { boxShadow: '0 0 0 3px #d98e3f' } : {}} type="button">
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div className="w-12 h-12 rounded-xl bg-tertiary-fixed flex items-center justify-center shrink-0">
-                                                    <span className="material-symbols-outlined text-on-tertiary-fixed text-[28px]">eco</span>
-                                                </div>
-                                                <span className="font-label-sm text-label-sm bg-tertiary-fixed text-on-tertiary-fixed-variant px-2 py-0.5 rounded-full font-bold">Wangi Alami</span>
-                                            </div>
-                                            <div className="mt-3">
-                                                <h3 className="font-title-md text-title-md text-on-surface font-extrabold leading-snug">Adonan Pandan Suji Asli</h3>
-                                                <p className="font-body-md text-body-md text-on-surface-variant mt-0.5">Ember Kompak 5 Liter (Ekstrak Suji)</p>
-                                            </div>
-                                            <div className="mt-2 flex items-center justify-between font-label-sm text-label-sm">
-                                                <span className={`${activeRecipeKey === 'pandan-suji' ? 'text-primary' : 'text-on-surface-variant'} font-bold`}>Standard Yield: ~11-12 loyang</span>
-                                                <span className="w-2 h-2 rounded-full bg-tertiary"></span>
-                                            </div>
-                                        </button>
-
-                                        {/* Card 4: Red Velvet Gourmet */}
-                                        <button onClick={() => setActiveRecipeKey('red-velvet')} className={`text-left p-4 rounded-2xl transition-all duration-150 relative flex flex-col justify-between min-h-[148px] shadow-sm ${activeRecipeKey === 'red-velvet' ? 'bg-surface-container-low translate-y-0.5' : 'bg-surface-container-lowest hover:bg-surface-container-low'}`} style={activeRecipeKey === 'red-velvet' ? { boxShadow: '0 0 0 3px #d98e3f' } : {}} type="button">
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div className="w-12 h-12 rounded-xl bg-surface-variant flex items-center justify-center shrink-0">
-                                                    <span className="material-symbols-outlined text-error text-[28px]">cookie</span>
-                                                </div>
-                                                <span className="font-label-sm text-label-sm bg-error-container text-on-error-container px-2 py-0.5 rounded-full font-bold">Gourmet</span>
-                                            </div>
-                                            <div className="mt-3">
-                                                <h3 className="font-title-md text-title-md text-on-surface font-extrabold leading-snug">Adonan Red Velvet Gourmet</h3>
-                                                <p className="font-body-md text-body-md text-on-surface-variant mt-0.5">Ember Kompak 5 Liter (Bit &amp; Cokelat)</p>
-                                            </div>
-                                            <div className="mt-2 flex items-center justify-between font-label-sm text-label-sm">
-                                                <span className={`${activeRecipeKey === 'red-velvet' ? 'text-primary' : 'text-on-surface-variant'} font-bold`}>Standard Yield: ~11-12 loyang</span>
-                                                <span className="w-2 h-2 rounded-full bg-tertiary"></span>
-                                            </div>
-                                        </button>
+                                        {Object.entries(recipes).map(([key, r]) => {
+                                            const isActive = activeRecipeKey === key;
+                                            return (
+                                                <button key={key} onClick={() => setActiveRecipeKey(key)} className={`text-left p-4 rounded-2xl transition-all duration-150 relative flex flex-col justify-between min-h-[148px] shadow-sm ${isActive ? 'bg-surface-container-low translate-y-0.5' : 'bg-surface-container-lowest hover:bg-surface-container-low'}`} style={isActive ? { boxShadow: '0 0 0 3px #d98e3f' } : {}} type="button">
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="w-12 h-12 rounded-xl bg-secondary-fixed flex items-center justify-center shrink-0">
+                                                            <span className="material-symbols-outlined text-on-secondary-fixed text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>cake</span>
+                                                        </div>
+                                                        <span className="font-label-sm text-label-sm bg-secondary-container text-on-secondary-container px-2.5 py-1 rounded-full font-extrabold flex items-center gap-1 shadow-sm">
+                                                            <span className="material-symbols-outlined text-[14px]">star</span> {r.category || 'Resep'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="mt-3">
+                                                        <h3 className="font-title-md text-title-md text-on-surface font-extrabold leading-snug">{r.title}</h3>
+                                                        <p className="font-body-md text-body-md text-on-surface-variant mt-0.5">{r.subtitle || r.unit}</p>
+                                                    </div>
+                                                    <div className="mt-2 flex items-center justify-between font-label-sm text-label-sm">
+                                                        <span className={`${isActive ? 'text-primary' : 'text-on-surface-variant'} font-bold`}>Standard Yield: {`± ${currentBatch * r.yieldMultiplierMin} ${r.yieldMultiplierMax && r.yieldMultiplierMax !== r.yieldMultiplierMin ? "- " + (currentBatch * r.yieldMultiplierMax) : ""} ${r.yieldText || ""}`}</span>
+                                                        <span className="w-2 h-2 rounded-full bg-tertiary"></span>
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 
@@ -305,7 +228,7 @@ export default function KitchenProductionScreen() {
                                         </div>
                                         <div className="flex flex-col">
                                             <span className="font-label-sm text-label-sm uppercase font-extrabold tracking-wide">Estimasi Output Loyang Masak</span>
-                                            <span className="font-title-md text-title-md font-black">{recipe.yieldRange(currentBatch)}</span>
+                                            <span className="font-title-md text-title-md font-black">Menghasilkan ±   </span>
                                         </div>
                                     </div>
                                 </div>

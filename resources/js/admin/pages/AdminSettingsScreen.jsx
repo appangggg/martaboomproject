@@ -1,59 +1,141 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
 export default function AdminSettingsScreen() {
   const [activeTab, setActiveTab] = useState('menu-harga');
   const [paperSize, setPaperSize] = useState('80mm');
+  const [menuItems, setMenuItems] = useState([]);
+  const [staffList, setStaffList] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const menuItems = [
-    {
-      id: 'TB-001',
-      name: 'Martabak Black Forest Cream Cheese',
-      category: 'Terang Bulan Premium',
-      desc: 'Adonan cokelat pekat khas Belanda dengan lelehan cream cheese Anchor dan taburan parutan dark chocolate Callebaut.',
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD5R83vwadjEz_z2tRE3-mRgWDJiJVM8kZgbbwSF0DtCE8TCkao0xVx6WLnPt8i7-FnTiIgSVZdP6o_AZ3nqKQv3qIpvnSkwt3VxHiR7arKK6MSE3PwHScoS2pvH6zU5OpCKD7xjzqvCni-vr3afZtetypr2lsbBQ-OVmlTqqOjvahX4QXNhVsgknHmLIvOLh0Wtav8R5c2CPxUWdbQanSIKWamYHiv8NBx65V2ssfai3LWxgoAaSs22A',
-      margin: 'Margin 64.2%',
-      price: 'Rp 68.000',
-      hpp: 'Rp 24.340',
-      status: 'Aktif di Semua Cabang',
-      ingredients: '12 Bahan Terkunci'
-    },
-    {
-      id: 'MT-004',
-      name: 'Martabak Telur Bebek Spesial Daging Sapi',
-      category: 'Martabak Telur Asin',
-      desc: 'Kulit martabak renyah ganda berisi 3 butir telur bebek segar, cincangan daging sapi lada hitam, dan kuah cuka cuko rempah.',
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAOX9POMOyErR2w3gwQ6uiTI1kVXt4Dug8SQ3HI_puqcY-dZoTkDi_-Q7-0Ey_59prEmCHiRmzmo8FT-rO9nRO7AvBOVpYzWexUzEoovkMLv7Pe4kycrc5Taa8UtglKMrHSVbQOAvJgn0mGBwV--bfEAUSziMpotffEi6pL14xuIJ5g57or1-xRKZynn4lurxkyZgwCxmDw6cLpRtN7BP_ar77UkHC1kFNjm81pw-YLfOLxNWy5QP0EPA',
-      margin: 'Margin 58.0%',
-      marginColor: 'bg-secondary-fixed text-on-secondary-fixed-variant',
-      badgeColor: 'bg-secondary',
-      price: 'Rp 62.000',
-      hpp: 'Rp 26.040',
-      status: 'Aktif di Semua Cabang',
-      ingredients: '8 Bahan Terkunci'
-    },
-    {
-      id: 'TB-009',
-      name: 'Terang Bulan Pandan Jagung Keju',
-      category: 'Terang Bulan Klasik',
-      desc: 'Adonan pandan wangi Suji asli berpadu pipilan jagung manis kukus, susu kental manis, dan keju cheddar tebal.',
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAE-dUDuhpRDnhmDwn0j3_KkC_GFNXMi1JVABcuasDrn9Mpq-kd_pM5ADt6j5VvyBIsrEKJev5OzqAzscWCL-WYwasj_vbtnF5Cdy34mJfe0Cyz7YN0e46hY_2VC1L5ct_0A_AqsePcBYJCFH1KtE4DEeVXjFtldv9oz1fDDUVtQk2J-qMKdg1PTtsJQS04ZXxj16sjM0UAj2P0nfxoYtFpXMk8BbsqgNp349UyW3JBwyxc0KGO3yQ5nw',
-      margin: 'Margin 67.5%',
-      badgeColor: 'bg-error',
-      price: 'Rp 48.000',
-      hpp: 'Rp 15.600',
-      status: 'Nonaktif di Cabang Dago',
-      statusColor: 'text-error bg-error-container px-2 py-0.5 rounded',
-      statusIcon: 'block',
-      ingredients: '10 Bahan Terkunci'
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [productsRes, employeesRes] = await Promise.all([
+        axios.get('/api/admin/products'),
+        axios.get('/api/admin/employees')
+      ]);
+      
+      if (productsRes.data.status === 'success') {
+        const formattedProducts = productsRes.data.data.map(p => ({
+          id: 'TB-' + p.id.toString().padStart(3, '0'),
+          real_id: p.id,
+          name: p.name,
+          category_id: p.category_id,
+          category: p.category ? p.category.name : 'Uncategorized',
+          desc: p.description || 'Tidak ada deskripsi',
+          image: 'https://placehold.co/400x300?text=' + encodeURIComponent(p.name),
+          margin: 'Margin ' + (p.type === 'addon' ? '70%' : '60%'),
+          price: 'Rp ' + p.base_price.toLocaleString('id-ID'),
+          base_price: p.base_price,
+          hpp: 'Rp ' + (p.base_price * 0.4).toLocaleString('id-ID'),
+          status: p.is_active ? 'Aktif' : 'Nonaktif',
+          statusColor: p.is_active ? 'text-tertiary' : 'text-error bg-error-container px-2 py-0.5 rounded',
+          badgeColor: p.type === 'addon' ? 'bg-secondary' : 'bg-tertiary',
+          ingredients: 'Bahan Terkunci',
+          is_active: p.is_active,
+          type: p.type
+        }));
+        setMenuItems(formattedProducts);
+      }
+      
+      if (employeesRes.data.status === 'success') {
+        const staffData = Array.isArray(employeesRes.data.data) ? employeesRes.data.data : employeesRes.data.data.data;
+        const formattedStaff = staffData.map(e => ({
+          id: e.employee_id || ('STF-' + e.id.toString().padStart(3, '0')),
+          real_id: e.id,
+          name: e.name,
+          init: e.name.substring(0, 2).toUpperCase(),
+          branch_id: e.branch_id,
+          branch: e.branch ? e.branch.name : 'Semua Cabang',
+          role: e.role,
+          discount: e.role === 'owner' ? '100%' : '10%',
+          status: e.pin ? 'Aktif' : 'Tanpa PIN',
+          pinColor: e.pin ? 'text-tertiary' : 'text-error',
+          pinIcon: e.pin ? 'lock_reset' : 'error',
+          isExpired: !e.pin
+        }));
+        setStaffList(formattedStaff);
+      }
+    } catch (err) {
+      console.error("Error fetching admin settings data", err);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const staffList = [
-    { id: 'STF-DPU-001', name: 'Budi Utomo', init: 'BU', branch: 'Cabang Dipatiukur', role: 'Kasir Utama', discount: '10%', status: 'Aktif (Terakhir 3 hari lalu)', pinColor: 'text-tertiary', pinIcon: 'lock_reset' },
-    { id: 'STF-DGO-004', name: 'Siti Aminah', init: 'SA', branch: 'Cabang Dago', role: 'Supervisor (SPV)', discount: '25% (Otoritas VOID)', status: 'Aktif (Terakhir kemarin)', pinColor: 'text-tertiary', pinIcon: 'lock_reset' },
-    { id: 'STF-BUA-002', name: 'Agus Riyadi', init: 'AR', branch: 'Cabang Buah Batu', role: 'Koki Martabak', discount: '0% (Tidak Ada Otoritas)', status: 'KDS Only (Display)', pinColor: 'text-on-surface-variant', pinIcon: 'lock_clock' },
-    { id: 'STF-CBR-005', name: 'Deni Nugraha', init: 'DN', branch: 'Cabang Cibiru', role: 'Kasir Magang', discount: '5%', status: 'PIN Kadaluarsa', pinColor: 'text-error', pinIcon: 'error', isExpired: true },
-  ];
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleDeleteProduct = async (id) => {
+    if (confirm('Apakah Anda yakin ingin menghapus produk ini?')) {
+      try {
+        await axios.delete(`/api/admin/products/${id}`);
+        fetchData();
+      } catch (error) {
+        console.error('Failed to delete product', error);
+        alert('Gagal menghapus produk');
+      }
+    }
+  };
+
+  const handleDeleteEmployee = async (id) => {
+    if (confirm('Apakah Anda yakin ingin menghapus staf ini?')) {
+      try {
+        await axios.delete(`/api/admin/employees/${id}`);
+        fetchData();
+      } catch (error) {
+        console.error('Failed to delete employee', error);
+        alert('Gagal menghapus staf');
+      }
+    }
+  };
+
+  const handleProductSubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    // basic mapping for boolean/numeric
+    data.is_active = data.is_active === 'on' || data.is_active === '1' || data.is_active === 'true' || data.is_active === true;
+    
+    try {
+      if (selectedProduct) {
+        await axios.put(`/api/admin/products/${selectedProduct.real_id}`, data);
+      } else {
+        await axios.post('/api/admin/products', data);
+      }
+      setIsProductModalOpen(false);
+      fetchData();
+    } catch (error) {
+      console.error('Failed to save product', error);
+      alert('Gagal menyimpan produk');
+    }
+  };
+
+  const handleEmployeeSubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    try {
+      if (selectedEmployee) {
+        await axios.put(`/api/admin/employees/${selectedEmployee.real_id}`, data);
+      } else {
+        await axios.post('/api/admin/employees', data);
+      }
+      setIsEmployeeModalOpen(false);
+      fetchData();
+    } catch (error) {
+      console.error('Failed to save employee', error);
+      alert('Gagal menyimpan staf');
+    }
+  };
 
   const resetPin = (name) => {
     alert(`Reset PIN untuk ${name} berhasil. Cek email / WA untuk PIN baru.`);
@@ -91,7 +173,7 @@ export default function AdminSettingsScreen() {
         <button onClick={() => setActiveTab('menu-harga')} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-label-md text-label-md transition-all shrink-0 ${activeTab === 'menu-harga' ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container shadow-sm'}`}>
           <span className="material-symbols-outlined text-[18px]">restaurant_menu</span>
           <span>Menu & Harga</span>
-          <span className={`px-1.5 py-0.5 rounded-full ${activeTab === 'menu-harga' ? 'bg-surface-container-lowest/20' : 'bg-surface-container'} font-label-sm text-[10px]`}>24 SKU</span>
+          <span className={`px-1.5 py-0.5 rounded-full ${activeTab === 'menu-harga' ? 'bg-surface-container-lowest/20' : 'bg-surface-container'} font-label-sm text-[10px]`}>{menuItems.length} SKU</span>
         </button>
         <button onClick={() => setActiveTab('modifier-topping')} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-label-md text-label-md transition-all shrink-0 ${activeTab === 'modifier-topping' ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container shadow-sm'}`}>
           <span className="material-symbols-outlined text-[18px]">auto_fix_high</span>
@@ -105,7 +187,7 @@ export default function AdminSettingsScreen() {
         <button onClick={() => setActiveTab('pengguna-pin')} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-label-md text-label-md transition-all shrink-0 ${activeTab === 'pengguna-pin' ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container shadow-sm'}`}>
           <span className="material-symbols-outlined text-[18px]">badge</span>
           <span>Pengguna & PIN Kasir</span>
-          <span className="px-1.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-[10px]">14 Staf</span>
+          <span className="px-1.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-[10px]">{staffList.length} Staf</span>
         </button>
         <button onClick={() => setActiveTab('integrasi-kasir')} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-label-md text-label-md transition-all shrink-0 ${activeTab === 'integrasi-kasir' ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container shadow-sm'}`}>
           <span className="material-symbols-outlined text-[18px]">hub</span>
@@ -134,7 +216,7 @@ export default function AdminSettingsScreen() {
               <button className="px-3 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors">
                 <span className="material-symbols-outlined text-[16px]">file_download</span> Export Excel
               </button>
-              <button className="px-4 py-2 rounded-lg bg-primary hover:bg-surface-tint text-on-primary font-label-md text-label-md flex items-center gap-1.5 shadow-sm transition-all">
+              <button onClick={() => { setSelectedProduct(null); setIsProductModalOpen(true); }} className="px-4 py-2 rounded-lg bg-primary hover:bg-surface-tint text-on-primary font-label-md text-label-md flex items-center gap-1.5 shadow-sm transition-all">
                 <span className="material-symbols-outlined text-[18px]">add_circle</span> + Tambah Menu Baru
               </button>
             </div>
@@ -180,11 +262,11 @@ export default function AdminSettingsScreen() {
                       <span>{item.ingredients}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button className="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors">
+                      <button onClick={() => { setSelectedProduct(item); setIsProductModalOpen(true); }} className="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors">
                         <span className="material-symbols-outlined text-[18px]">edit</span>
                       </button>
-                      <button className="p-1.5 rounded-lg text-error hover:bg-error-container hover:text-on-error-container transition-colors">
-                        <span className="material-symbols-outlined text-[18px]">toggle_on</span>
+                      <button onClick={() => handleDeleteProduct(item.real_id)} className="p-1.5 rounded-lg text-error hover:bg-error-container hover:text-on-error-container transition-colors">
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
                       </button>
                     </div>
                   </div>
@@ -512,7 +594,7 @@ export default function AdminSettingsScreen() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button className="px-4 py-2 rounded-lg bg-primary hover:bg-surface-tint text-on-primary font-label-md text-label-md flex items-center gap-1.5 shadow-sm transition-all">
+              <button onClick={() => { setSelectedEmployee(null); setIsEmployeeModalOpen(true); }} className="px-4 py-2 rounded-lg bg-primary hover:bg-surface-tint text-on-primary font-label-md text-label-md flex items-center gap-1.5 shadow-sm transition-all">
                 <span className="material-symbols-outlined text-[18px]">person_add</span> + Tambah Akun Staf
               </button>
             </div>
@@ -560,9 +642,17 @@ export default function AdminSettingsScreen() {
                         </div>
                       </td>
                       <td className="py-3.5 px-space-md text-right">
-                        <button onClick={() => resetPin(staff.name)} className={`px-3 py-1.5 rounded-lg ${staff.isExpired ? 'bg-error-container text-on-error-container' : 'bg-surface-container hover:bg-surface-container-high text-on-surface'} font-label-md text-label-md inline-flex items-center gap-1 transition-colors`}>
-                          <span className={`material-symbols-outlined text-[16px] ${staff.isExpired ? '' : 'text-primary'}`}>{staff.isExpired ? 'sync_lock' : 'key'}</span> {staff.isExpired ? 'Buat Baru' : 'Reset PIN'}
-                        </button>
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => resetPin(staff.name)} className={`px-2 py-1.5 rounded-lg ${staff.isExpired ? 'bg-error-container text-on-error-container' : 'bg-surface-container hover:bg-surface-container-high text-on-surface'} font-label-md text-label-md inline-flex items-center gap-1 transition-colors`} title="Reset PIN">
+                            <span className={`material-symbols-outlined text-[16px] ${staff.isExpired ? '' : 'text-primary'}`}>{staff.isExpired ? 'sync_lock' : 'key'}</span>
+                          </button>
+                          <button onClick={() => { setSelectedEmployee(staff); setIsEmployeeModalOpen(true); }} className="px-2 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md inline-flex items-center gap-1 transition-colors" title="Edit Staf">
+                            <span className="material-symbols-outlined text-[16px]">edit</span>
+                          </button>
+                          <button onClick={() => handleDeleteEmployee(staff.real_id)} className="px-2 py-1.5 rounded-lg text-error hover:bg-error-container hover:text-on-error-container font-label-md text-label-md inline-flex items-center gap-1 transition-colors" title="Hapus Staf">
+                            <span className="material-symbols-outlined text-[16px]">delete</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -600,6 +690,112 @@ export default function AdminSettingsScreen() {
               <span className="font-label-sm text-label-sm text-on-surface-variant">Status: Siaga Operasional</span>
               <button className="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md">Konfigurasi</button>
             </div>
+          </div>
+        </div>
+      )}
+    {/* Modals */}
+      {isProductModalOpen && (
+        <div className="fixed inset-0 z-50 bg-on-surface/40 backdrop-blur-sm flex items-center justify-center p-space-md">
+          <div className="w-full max-w-lg rounded-2xl bg-surface-container-lowest shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-space-md bg-surface-container-low flex items-center justify-between sticky top-0 z-10 border-b border-surface-container-high">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[22px]">{selectedProduct ? 'edit' : 'add_circle'}</span>
+                <span className="font-headline-sm text-headline-sm text-on-surface">{selectedProduct ? 'Edit Produk' : 'Tambah Produk Baru'}</span>
+              </div>
+              <button onClick={() => setIsProductModalOpen(false)} className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container">
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+            <form onSubmit={handleProductSubmit} className="flex flex-col overflow-y-auto">
+              <div className="p-space-md flex flex-col gap-space-sm">
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">Nama Produk</label>
+                  <input type="text" name="name" defaultValue={selectedProduct?.name} required className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">Kategori</label>
+                  <select name="category_id" defaultValue={selectedProduct?.category_id || 1} className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none">
+                    <option value="1">Terang Bulan</option>
+                    <option value="2">Martabak Telur</option>
+                    <option value="3">Minuman</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">Tipe (Base/Addon)</label>
+                  <select name="type" defaultValue={selectedProduct?.type || 'base'} className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none">
+                    <option value="base">Base (Menu Utama)</option>
+                    <option value="addon">Addon / Topping</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">Harga Jual (Rp)</label>
+                  <input type="number" name="base_price" defaultValue={selectedProduct?.base_price} required className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">Deskripsi (Opsional)</label>
+                  <textarea name="description" defaultValue={selectedProduct?.desc !== 'Tidak ada deskripsi' ? selectedProduct?.desc : ''} className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" rows="3"></textarea>
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <input type="checkbox" name="is_active" id="is_active" defaultChecked={selectedProduct ? selectedProduct.is_active : true} value="1" className="w-4 h-4 rounded text-primary focus:ring-primary" />
+                  <label htmlFor="is_active" className="font-label-md text-label-md text-on-surface">Produk Aktif / Tersedia</label>
+                </div>
+              </div>
+              <div className="p-space-md bg-surface-container-low flex justify-end gap-space-xs sticky bottom-0 border-t border-surface-container-high">
+                <button type="button" onClick={() => setIsProductModalOpen(false)} className="px-space-md py-2 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high">Batal</button>
+                <button type="submit" className="px-space-md py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md font-semibold hover:bg-on-primary-fixed-variant">Simpan Produk</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isEmployeeModalOpen && (
+        <div className="fixed inset-0 z-50 bg-on-surface/40 backdrop-blur-sm flex items-center justify-center p-space-md">
+          <div className="w-full max-w-lg rounded-2xl bg-surface-container-lowest shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-space-md bg-surface-container-low flex items-center justify-between sticky top-0 z-10 border-b border-surface-container-high">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[22px]">{selectedEmployee ? 'edit' : 'person_add'}</span>
+                <span className="font-headline-sm text-headline-sm text-on-surface">{selectedEmployee ? 'Edit Akun Staf' : 'Tambah Akun Staf'}</span>
+              </div>
+              <button onClick={() => setIsEmployeeModalOpen(false)} className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container">
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+            <form onSubmit={handleEmployeeSubmit} className="flex flex-col overflow-y-auto">
+              <div className="p-space-md flex flex-col gap-space-sm">
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">Nama Lengkap</label>
+                  <input type="text" name="name" defaultValue={selectedEmployee?.name} required className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">Role Akses</label>
+                  <select name="role" defaultValue={selectedEmployee?.role || 'cashier'} className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none">
+                    <option value="owner">Owner</option>
+                    <option value="supervisor">Supervisor</option>
+                    <option value="cashier">Kasir</option>
+                    <option value="kitchen">Koki / Dapur</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">Penempatan Cabang</label>
+                  <select name="branch_id" defaultValue={selectedEmployee?.branch_id || ''} className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none">
+                    <option value="">Semua Cabang (Global)</option>
+                    <option value="1">Cabang Tebet</option>
+                    <option value="2">Cabang Kemang</option>
+                    <option value="3">Cabang BSD</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">PIN Kasir (6 Angka)</label>
+                  <input type="text" name="pin" maxLength="6" pattern="\d{6}" placeholder="Contoh: 123456" className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" />
+                  {selectedEmployee && <span className="text-[10px] text-on-surface-variant mt-1">Kosongkan jika tidak ingin mengubah PIN saat ini.</span>}
+                </div>
+              </div>
+              <div className="p-space-md bg-surface-container-low flex justify-end gap-space-xs sticky bottom-0 border-t border-surface-container-high">
+                <button type="button" onClick={() => setIsEmployeeModalOpen(false)} className="px-space-md py-2 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high">Batal</button>
+                <button type="submit" className="px-space-md py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md font-semibold hover:bg-on-primary-fixed-variant">Simpan Akun</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

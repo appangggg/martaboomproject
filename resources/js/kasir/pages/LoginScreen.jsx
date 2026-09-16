@@ -1,18 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 export default function LoginScreen() {
     const navigate = useNavigate();
-    const [pin, setPin] = useState('1284');
+    const [pin, setPin] = useState('');
+    const [employees, setEmployees] = useState([]);
+    const [selectedEmployee, setSelectedEmployee] = useState(null);
     
     const isDarkMode = false; // Add real theme state later
+
+    useEffect(() => {
+        const fetchEmployees = async () => {
+            try {
+                // Fetch cashiers/employees
+                const res = await axios.get('/api/admin/employees');
+                if (res.data.status === 'success') {
+                    const responseData = res.data.data;
+                    const data = Array.isArray(responseData) ? responseData : responseData.data;
+                    setEmployees(data);
+                    if (data && data.length > 0) {
+                        setSelectedEmployee(data[0]);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch employees", err);
+            }
+        };
+        fetchEmployees();
+    }, []);
 
     const handlePinInput = (num) => {
         if (pin.length < 6) {
             const newPin = pin + num;
             setPin(newPin);
             if (newPin.length === 6) {
-                // Simulate auto-login on 6 digits
+                // In a real app we'd verify the PIN against selectedEmployee.pin
+                localStorage.setItem('pos_cashier', JSON.stringify(selectedEmployee));
                 setTimeout(() => {
                     navigate('/shift');
                 }, 300);
@@ -91,31 +115,44 @@ export default function LoginScreen() {
                                     {/* Current Cashier Card */}
                                     <div className="mt-6 p-4 rounded-xl bg-surface-container-low flex items-center gap-4 shadow-sm">
                                         <div className="relative">
-                                            <img className="w-16 h-16 rounded-full object-cover shadow-md" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB23rF-gikFj04uOUE_dIpTCx645d9jBJWYP1PBQCTPFQFHSri2M8YGt9Z80wMsXEMQ_RhKVGLwFLo7fBbgpTlb6ZyJjr5rWmi7pRhaf7Iihiq0jUnqvDVb0X0-iXI9LIYOls3MErTxlLD4SQTBCNpXp8Q5Q0NqQ2hDKmcicGj2amTvrbD-APGNZInOBEZqeCN1tnF8mC4inuqnxUEYe6TN-y6d8fR5BLc1_OGqgwKYP4Xv4qah_TpC" alt="Cashier Profile" />
+                                            <div className="w-16 h-16 rounded-full shadow-md bg-primary/20 text-primary flex items-center justify-center font-bold text-2xl">
+                                                {selectedEmployee ? selectedEmployee.name.substring(0, 2).toUpperCase() : 'KA'}
+                                            </div>
                                             <span className="absolute bottom-0 right-0 w-4 h-4 bg-tertiary rounded-full border-2 border-surface-container-lowest"></span>
                                         </div>
                                         <div className="flex flex-col min-w-0">
                                             <div className="flex items-center gap-1.5">
-                                                <span className="font-title-md text-title-md text-on-surface font-bold truncate">Budi Santoso</span>
+                                                <span className="font-title-md text-title-md text-on-surface font-bold truncate">
+                                                    {selectedEmployee ? selectedEmployee.name : 'Kasir Utama'}
+                                                </span>
                                                 <span className="material-symbols-outlined text-primary text-base" style={{fontVariationSettings: "'FILL' 1"}}>verified</span>
                                             </div>
-                                            <span className="font-label-sm text-label-sm text-primary font-semibold">Kasir Utama</span>
-                                            <span className="font-label-sm text-label-sm text-on-surface-variant">ID: KSR-00829</span>
+                                            <span className="font-label-sm text-label-sm text-primary font-semibold">
+                                                {selectedEmployee ? selectedEmployee.role.toUpperCase() : 'KASIR'}
+                                            </span>
+                                            <span className="font-label-sm text-label-sm text-on-surface-variant">
+                                                ID: KSR-{(selectedEmployee?.id || 1).toString().padStart(5, '0')}
+                                            </span>
                                         </div>
                                     </div>
 
                                     {/* Quick Switch Cashier Chips */}
                                     <div className="mt-4">
                                         <label className="font-label-sm text-label-sm text-on-surface-variant block mb-2">Ganti Petugas Kasir:</label>
-                                        <div className="flex flex-wrap gap-2">
-                                            <button className="group flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container hover:bg-surface-container-high transition active:scale-95 text-on-surface" type="button">
-                                                <span className="w-6 h-6 rounded-full bg-primary-container text-on-primary font-label-sm text-label-sm flex items-center justify-center">SA</span>
-                                                <span className="font-label-md text-label-md">Siti Aminah</span>
-                                            </button>
-                                            <button className="group flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container hover:bg-surface-container-high transition active:scale-95 text-on-surface" type="button">
-                                                <span className="w-6 h-6 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm flex items-center justify-center">DK</span>
-                                                <span className="font-label-md text-label-md">Dimas K.</span>
-                                            </button>
+                                        <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                                            {employees.map(emp => (
+                                                <button 
+                                                    key={emp.id}
+                                                    onClick={() => { setSelectedEmployee(emp); setPin(''); }}
+                                                    className={`group flex items-center gap-2 px-3 py-1.5 rounded-full transition active:scale-95 text-on-surface ${selectedEmployee?.id === emp.id ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container hover:bg-surface-container-high'}`} 
+                                                    type="button"
+                                                >
+                                                    <span className={`w-6 h-6 rounded-full font-label-sm text-label-sm flex items-center justify-center ${selectedEmployee?.id === emp.id ? 'bg-primary text-on-primary' : 'bg-secondary-container text-on-secondary-container'}`}>
+                                                        {emp.name.substring(0, 2).toUpperCase()}
+                                                    </span>
+                                                    <span className="font-label-md text-label-md">{emp.name}</span>
+                                                </button>
+                                            ))}
                                         </div>
                                     </div>
                                 </div>

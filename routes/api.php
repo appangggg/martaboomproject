@@ -25,6 +25,9 @@ Route::get('/user', function (Request $request) {
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/list', [ProductController::class, 'getProducts']);
 Route::post('/transactions', [TransactionController::class, 'store']);
+Route::get('/transactions/pending', [TransactionController::class, 'pending']);
+Route::get('/kitchen/recipes', [\App\Http\Controllers\API\KitchenController::class, 'recipes']);
+Route::get('/kitchen/inventory', [\App\Http\Controllers\API\KitchenController::class, 'inventory']);
 
 // Admin Dashboard Endpoints
 Route::get('/admin/dashboard', [DashboardController::class, 'getStats']);

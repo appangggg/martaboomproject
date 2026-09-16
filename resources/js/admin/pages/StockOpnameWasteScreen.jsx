@@ -4,6 +4,7 @@ export default function StockOpnameWasteScreen() {
   const [wastes, setWastes] = useState([]);
   const [opnames, setOpnames] = useState([]);
   const [branchId, setBranchId] = useState('all');
+  const [isWasteModalOpen, setIsWasteModalOpen] = useState(false);
 
   const loadWastes = async () => {
     try {
@@ -33,6 +34,30 @@ export default function StockOpnameWasteScreen() {
     loadWastes();
     loadOpnames();
   }, [branchId]);
+
+  const totalOpnameItems = opnames.reduce((sum, opname) => sum + opname.items.length, 0);
+  const totalSelisihItems = opnames.reduce((sum, opname) => sum + opname.items.filter(item => item.difference !== 0).length, 0);
+  const totalBiayaWaste = wastes.reduce((sum, waste) => sum + Number(waste.estimated_cost), 0);
+  const accuracy = totalOpnameItems > 0 ? (((totalOpnameItems - totalSelisihItems) / totalOpnameItems) * 100).toFixed(1) : 100;
+
+  const wastesWithPhotos = wastes.filter(w => w.photo_url).slice(0, 4); // get up to 4 photos
+
+  const handleAddWasteSubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    try {
+      const res = await window.apiClient.post('/waste-logs', data);
+      if (res.status === 'success') {
+        alert('Waste berhasil ditambahkan');
+        setIsWasteModalOpen(false);
+        loadWastes();
+      }
+    } catch (err) {
+      alert('Gagal menambah data waste');
+      console.error(err);
+    }
+  };
 
   return (
     <div className="flex flex-col w-full pb-space-xl">
@@ -93,7 +118,7 @@ export default function StockOpnameWasteScreen() {
               <span className="p-1.5 rounded-lg bg-surface-container text-primary material-symbols-outlined text-[18px]">inventory</span>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="font-headline-kpi text-headline-kpi text-on-surface tabular-nums">24 Bahan</span>
+              <span className="font-headline-kpi text-headline-kpi text-on-surface tabular-nums">{totalOpnameItems} Bahan</span>
             </div>
             <div className="mt-2 flex items-center gap-1.5 text-tertiary font-label-sm text-label-sm font-semibold">
               <span className="material-symbols-outlined text-[14px]">check_circle</span>
@@ -107,12 +132,12 @@ export default function StockOpnameWasteScreen() {
               <span className="p-1.5 rounded-lg bg-error-container text-on-error-container material-symbols-outlined text-[18px]">warning</span>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="font-headline-kpi text-headline-kpi text-error tabular-nums">3 Item</span>
+              <span className="font-headline-kpi text-headline-kpi text-error tabular-nums">{totalSelisihItems} Item</span>
               <span className="font-label-sm text-label-sm text-on-surface-variant">perlu tinjauan</span>
             </div>
             <div className="mt-2 flex items-center gap-1.5 text-error font-label-sm text-label-sm font-semibold">
               <span className="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>
-              <span>Total Nilai Selisih: -Rp 288.000</span>
+              <span>Total Nilai Selisih: Tinjau Item</span>
             </div>
           </div>
           
@@ -122,11 +147,11 @@ export default function StockOpnameWasteScreen() {
               <span className="p-1.5 rounded-lg bg-secondary-fixed text-on-secondary-fixed material-symbols-outlined text-[18px]">delete_sweep</span>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="font-headline-kpi text-headline-kpi text-on-surface tabular-nums">Rp 840.000</span>
+              <span className="font-headline-kpi text-headline-kpi text-on-surface tabular-nums">Rp {totalBiayaWaste.toLocaleString('id-ID')}</span>
             </div>
             <div className="mt-2 flex items-center gap-1.5 text-tertiary font-label-sm text-label-sm font-semibold">
               <span className="material-symbols-outlined text-[14px]">trending_down</span>
-              <span>0.67% dari Omzet (Batas Aman 1.5%)</span>
+              <span>Batas Aman 1.5% dari Omzet</span>
             </div>
           </div>
           
@@ -136,11 +161,11 @@ export default function StockOpnameWasteScreen() {
               <span className="p-1.5 rounded-lg bg-tertiary-fixed text-on-tertiary-fixed-variant material-symbols-outlined text-[18px]">precision_manufacturing</span>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="font-headline-kpi text-headline-kpi text-on-surface tabular-nums">97.8%</span>
+              <span className="font-headline-kpi text-headline-kpi text-on-surface tabular-nums">{accuracy}%</span>
             </div>
             <div className="mt-2 flex items-center gap-1.5 text-tertiary font-label-sm text-label-sm font-semibold">
               <span className="material-symbols-outlined text-[14px]">arrow_upward</span>
-              <span>+1.4% dibanding minggu lalu</span>
+              <span>Deviasi Berkurang</span>
             </div>
           </div>
         </div>
@@ -157,7 +182,7 @@ export default function StockOpnameWasteScreen() {
             </div>
             <div className="flex items-center gap-2 self-start sm:self-auto">
               <span className="px-2 py-1 rounded bg-error-container text-on-error-container font-label-sm text-label-sm font-bold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-error"></span> 3 Perbedaan Ditemukan
+                <span className="w-1.5 h-1.5 rounded-full bg-error"></span> {totalSelisihItems} Perbedaan Ditemukan
               </span>
               <button className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors">
                 <span className="material-symbols-outlined text-[20px]">filter_list</span>
@@ -272,7 +297,7 @@ export default function StockOpnameWasteScreen() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button className="flex items-center gap-1.5 bg-primary hover:bg-on-primary-fixed-variant text-on-primary px-3.5 py-2 rounded-lg font-label-md text-label-md font-semibold transition-all shadow-sm cursor-pointer whitespace-nowrap">
+                <button onClick={() => setIsWasteModalOpen(true)} className="flex items-center gap-1.5 bg-primary hover:bg-on-primary-fixed-variant text-on-primary px-3.5 py-2 rounded-lg font-label-md text-label-md font-semibold transition-all shadow-sm cursor-pointer whitespace-nowrap">
                   <span className="material-symbols-outlined text-[16px]">add_circle</span>
                   <span>Input Waste Tambahan</span>
                 </button>
@@ -367,7 +392,7 @@ export default function StockOpnameWasteScreen() {
               </div>
               <div className="flex items-baseline justify-between mb-1 tabular-nums">
                 <span className="font-body-md text-body-md text-on-surface-variant">Biaya Terakumulasi</span>
-                <span className="font-headline-sm text-headline-sm text-on-surface font-bold">Rp 840.000 <span className="font-body-md text-body-md text-on-surface-variant font-normal">/ Rp 1.875.000 max</span></span>
+                <span className="font-headline-sm text-headline-sm text-on-surface font-bold">Rp {totalBiayaWaste.toLocaleString('id-ID')} <span className="font-body-md text-body-md text-on-surface-variant font-normal">/ Rp 1.875.000 max</span></span>
               </div>
               <div className="w-full bg-surface-container-high h-3 rounded-full overflow-hidden mb-2 relative">
                 <div className="bg-tertiary h-full rounded-full transition-all duration-500" style={{ width: '44.8%' }}></div>
@@ -387,33 +412,25 @@ export default function StockOpnameWasteScreen() {
             <div className="p-5 rounded-xl bg-surface-container-lowest shadow-sm flex flex-col">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-headline-sm text-headline-sm text-on-surface font-bold">Dokumentasi Kerusakan</h3>
-                <span className="font-label-sm text-label-sm text-primary font-semibold">2 Foto Tersedia</span>
+                <span className="font-label-sm text-label-sm text-primary font-semibold">{wastesWithPhotos.length} Foto Tersedia</span>
               </div>
               <div className="grid grid-cols-2 gap-space-sm">
-                <div className="flex flex-col gap-1.5">
-                  <div className="w-full h-28 rounded-lg overflow-hidden relative shadow-sm group bg-surface-container">
-                    <img 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
-                      alt="Terang Bulan Gosong"
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_lwXtwPsGVuwm-t2rI9QS3ab6j3Ph4pgZ3cWDf2WxsH27YRWbS8ZlPPXx6dtkPdlwXS0XKfxeztM_btM8UlLjjnTikdu5oDx_XqY5VtaM0Zzqcf5XbhiGKjmbX0Z8MZePmhY_Qxlz6jS2d0gfz9SS4W_LsvQN4BPgjgYXhyEXYSDMBXMVckEKky-3td1zKg_4O13F1W2babyT8pK9t02zdBSBKHgnqY1-D96sIJ_zqpGzqUWkUksvSA"
-                    />
-                    <div className="absolute bottom-1 right-1 bg-surface/90 backdrop-blur-md px-1.5 py-0.5 rounded text-[10px] font-label-sm text-on-surface font-semibold">24 Okt</div>
+                {wastesWithPhotos.length > 0 ? wastesWithPhotos.map(w => (
+                  <div key={w.id} className="flex flex-col gap-1.5">
+                    <div className="w-full h-28 rounded-lg overflow-hidden relative shadow-sm group bg-surface-container">
+                      <img 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+                        alt={w.item_name}
+                        src={w.photo_url}
+                      />
+                      <div className="absolute bottom-1 right-1 bg-surface/90 backdrop-blur-md px-1.5 py-0.5 rounded text-[10px] font-label-sm text-on-surface font-semibold">{new Date(w.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}</div>
+                    </div>
+                    <span className="font-label-sm text-label-sm text-on-surface font-medium truncate">{w.item_name}</span>
+                    <span className="font-label-sm text-label-sm text-on-surface-variant">{w.branch?.name || 'Cabang'} &bull; {w.user?.name || 'Koki'}</span>
                   </div>
-                  <span className="font-label-sm text-label-sm text-on-surface font-medium truncate">Terang Bulan Gosong</span>
-                  <span className="font-label-sm text-label-sm text-on-surface-variant">Tebet &bull; Rahmat</span>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <div className="w-full h-28 rounded-lg overflow-hidden relative shadow-sm group bg-surface-container">
-                    <img 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
-                      alt="Telur Bebek Retak"
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuAmJ1JXVmCtcBebB8ktQxzS6UeLiWMzV2F-6tNbnWoUjcqa4RrfJzIgNTdFDtr1LYLb3WNMawNbiwnBbjOQzwHoVcNRqEZxng8ImxDfvWxqROE0cwwnEr4X8SUimSfvk-CzbltYdnlDjS2a6pI49eYTKN5aM1OWcQUAHe5Hbbtb7Ftv0jhjig4tHBGy1-W_5bxMjD-609hjIbMM7ar8MSJOvMYZoTODkWuhV1EeieV-iY0zPRTLS6vzvA"
-                    />
-                    <div className="absolute bottom-1 right-1 bg-surface/90 backdrop-blur-md px-1.5 py-0.5 rounded text-[10px] font-label-sm text-on-surface font-semibold">23 Okt</div>
-                  </div>
-                  <span className="font-label-sm text-label-sm text-on-surface font-medium truncate">Telur Bebek Retak</span>
-                  <span className="font-label-sm text-label-sm text-on-surface-variant">Kemang &bull; Siti</span>
-                </div>
+                )) : (
+                  <div className="col-span-2 p-4 text-center text-on-surface-variant font-label-sm text-label-sm bg-surface-container-low rounded-lg">Belum ada dokumentasi foto</div>
+                )}
               </div>
               <div className="mt-4 pt-3 flex items-center justify-between border-t border-outline-variant/30">
                 <div className="flex items-center gap-1.5 text-on-surface-variant font-label-sm text-label-sm">
@@ -443,6 +460,63 @@ export default function StockOpnameWasteScreen() {
           </div>
         </div>
       </div>
+      
+      {/* Input Waste Modal */}
+      {isWasteModalOpen && (
+        <div className="fixed inset-0 z-50 bg-on-surface/40 backdrop-blur-sm flex items-center justify-center p-space-md">
+          <div className="w-full max-w-lg rounded-2xl bg-surface-container-lowest shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-space-md bg-surface-container-low flex items-center justify-between sticky top-0 z-10 border-b border-surface-container-high">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[22px]">add_circle</span>
+                <span className="font-headline-sm text-headline-sm text-on-surface">Input Waste Tambahan</span>
+              </div>
+              <button onClick={() => setIsWasteModalOpen(false)} className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container">
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+            <form onSubmit={handleAddWasteSubmit} className="flex flex-col overflow-y-auto">
+              <div className="p-space-md flex flex-col gap-space-sm">
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">Nama Bahan/Item</label>
+                  <input type="text" name="item_name" required className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">Kuantitas</label>
+                  <div className="flex gap-2">
+                    <input type="number" step="0.01" name="quantity" required className="w-2/3 p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" />
+                    <select name="unit" className="w-1/3 p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" required>
+                      <option value="pcs">Pcs</option>
+                      <option value="kg">Kg</option>
+                      <option value="gr">Gram</option>
+                      <option value="porsi">Porsi</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">Alasan Kerusakan</label>
+                  <textarea name="reason" className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" rows="2" required></textarea>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">Estimasi Biaya (Rp)</label>
+                  <input type="number" name="estimated_cost" required className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">Cabang</label>
+                  <select name="branch_id" className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" required>
+                    <option value="1">Cabang Tebet</option>
+                    <option value="2">Cabang Kemang</option>
+                    <option value="3">Cabang BSD</option>
+                  </select>
+                </div>
+              </div>
+              <div className="p-space-md bg-surface-container-low flex justify-end gap-space-xs sticky bottom-0 border-t border-surface-container-high">
+                <button type="button" onClick={() => setIsWasteModalOpen(false)} className="px-space-md py-2 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high">Batal</button>
+                <button type="submit" className="px-space-md py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md font-semibold hover:bg-on-primary-fixed-variant">Simpan</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

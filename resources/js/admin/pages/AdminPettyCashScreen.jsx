@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function AdminPettyCashScreen() {
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
@@ -21,95 +21,81 @@ export default function AdminPettyCashScreen() {
     setIsReceiptModalOpen(false);
   };
 
-  const approveReimbursement = () => {
-    alert('Pengajuan Reimbursement Rp 84.000 berhasil disetujui!');
-    setIsApproveModalOpen(false);
-  };
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  const processTopup = () => {
-    alert('Instruksi Transfer VA BCA diterbitkan! Silakan konfirmasi pembayaran m-BCA.');
-    setIsTopupModalOpen(false);
-  };
-
-  const transactions = [
-    {
-      id: 1,
-      date: '24 Okt 2024',
-      time: '17:30 WIB (Shift 2)',
-      branch: 'Cabang Tebet',
-      categoryIcon: 'propane_tank',
-      category: 'Gas & Listrik',
-      categoryColor: 'text-primary',
-      desc: 'Beli Refill Gas Elpiji 12kg (2 Tabung)',
-      descNote: 'Agen Gas Utama Tebet Barat - Restock darurat saat peak hour martabak',
-      amount: 'Rp 440.000',
-      cashier: 'Dimas',
-      pin: 'PIN #104',
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAzDXUKOl80lLQN6Wo11NRdd0laoZSTU1H9-C5Ndymx3DLo0QvWTOODS7NfG1ygDx___WjhDdFAfVjbRwutEP2G3haGuMoC_KQkUV0dJRH-gEf6JQjBwHuemsX_kqaCzZG25jPeogo7iIXfqxfTPekJl7ipvki_EmjkuU20NhYermy14t2PF-DrwmxEfdKBGyNLogA_mYINl6MGrrR_bZMsKUEeB2C3cIqUoIAKXrYv8eP0_bvmfQ1dIA',
-      status: 'Terverifikasi',
-      statusColor: 'bg-tertiary-fixed text-on-tertiary-fixed-variant',
-      statusIcon: 'check_circle',
-      statusBy: 'Oleh: SPV Riko'
-    },
-    {
-      id: 2,
-      date: '24 Okt 2024',
-      time: '15:10 WIB (Shift 1)',
-      branch: 'Cabang Kemang',
-      categoryIcon: 'ac_unit',
-      category: 'Es Batu',
-      categoryColor: 'text-primary-container',
-      desc: '4 Kantong Es Kristal Tube Pesan Antar',
-      descNote: 'Agen Es Polar Kemang - Order tambahan cuaca panas terik',
-      amount: 'Rp 48.000',
-      cashier: 'Siti',
-      pin: 'PIN #202',
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD1DwJlWefVStDKmuGtJ2Q9CmAw_Guw5vaDcLiggzWiYqe48ft1W19y8jqaDDwZmN_vQOGsruQ5qgfgidUtDioGCKvJ1k-OVRCN9IkXRGZgmyoB2qUBFfuzjXj_DKxKtzoNnw7eRQ7YABTN6IJqN3eWu-w2gzdH5_wIqjrtQ6eFob2Fvg1rNJgjS024k28zN9O8HZPT--xj9jtOwQLpbffTY70YsMFAov2_1NF8DVWyPy6teQptdiPEMg',
-      status: 'Terverifikasi',
-      statusColor: 'bg-tertiary-fixed text-on-tertiary-fixed-variant',
-      statusIcon: 'check_circle',
-      statusBy: 'Oleh: SPV Doni'
-    },
-    {
-      id: 3,
-      date: '23 Okt 2024',
-      time: '19:20 WIB (Shift 2)',
-      branch: 'Cabang BSD',
-      categoryIcon: 'shopping_cart',
-      category: 'Bahan Darurat',
-      categoryColor: 'text-secondary',
-      desc: 'Beli Mentega Blueband Sachet 4 pcs di Indomaret',
-      descWarning: 'Habis mendadak karena lonjakan martabak manis',
-      amount: 'Rp 36.000',
-      cashier: 'Rian',
-      pin: 'PIN #305',
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAag-8itsyGRLNZjaYpI4ye2B8b_djgNVcjs1y_he9TZUcTmXw4V4Zv1gEIW-H58MAnAEcvyy1-WtQZWL9Tvpng5ThaVwOY1MTnyuEnwb6MO1o-1PtgX5X8teJXJFfXEQWIFf1VFD4ceB-aOLEoSRBVJ42QhaDPAW6V8iJyAw9jSXvJzfeRjEBlo9B7Q2G_19NSI2AVP0BZUI3PHU55H15yrIIlN5rAjDEgtE6_TW3shsm_Jk7oYwuXAw',
-      status: 'Catatan Khusus',
-      statusColor: 'bg-secondary-fixed text-on-secondary-fixed-variant',
-      statusIcon: 'help',
-      statusBy: 'Audit BOM Darurat',
-      isWarningRow: true
-    },
-    {
-      id: 4,
-      date: '23 Okt 2024',
-      time: '16:00 WIB (Shift 1)',
-      branch: 'Cabang Tebet',
-      categoryIcon: 'cleaning_services',
-      category: 'Kebersihan',
-      categoryColor: 'text-tertiary',
-      desc: 'Sabun Cuci Piring Sunlight 1.5L & Plastik Martabak Jumbo',
-      descNote: 'Toko Plastik & Kimia Berkah Jaya',
-      amount: 'Rp 85.000',
-      cashier: 'Dimas',
-      pin: 'PIN #104',
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuARO7akzy6tuV1HrJ4QF1HmldN5fU5j4lAtLe42b3fTVzWfhGD64igO_skZncAwaVGBVhz2yuN3vZFqwH8gugTrw1PBPSCFuEiPPEo5ne92654sDjChAvhbi_i_Iu9jfzThZEm2Ni0O9KdtAaw-WZmX6xdB5GbalaQTsmdRYGj3crJED5Jksd1SUFdwMzBjH_EKgc03xeKcbbcr1F4koh-lH4hWeGZEVfuJVKZmb0zME92jYa-gsGRD6w',
-      status: 'Terverifikasi',
-      statusColor: 'bg-tertiary-fixed text-on-tertiary-fixed-variant',
-      statusIcon: 'check_circle',
-      statusBy: 'Oleh: SPV Riko'
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const res = await window.apiClient.get('/petty-cash');
+      if (res.status === 'success') {
+        const pettyCashData = Array.isArray(res.data) ? res.data : (res.data.data || []);
+        const formatted = pettyCashData.map(p => ({
+          id: p.id,
+          date: new Date(p.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}),
+          time: new Date(p.created_at).toLocaleTimeString('id-ID', {hour: '2-digit', minute: '2-digit'}) + ' WIB',
+          branch: p.branch?.name || 'Cabang Default',
+          categoryIcon: 'receipt', // default icon
+          category: 'Pengeluaran',
+          categoryColor: 'text-primary',
+          desc: p.description,
+          descNote: p.notes,
+          amount: 'Rp ' + Number(p.amount).toLocaleString('id-ID'),
+          rawAmount: Number(p.amount),
+          cashier: p.user?.name || 'Unknown',
+          pin: 'User ID: ' + p.user_id,
+          image: p.receipt_photo_url || 'https://placehold.co/400x300?text=Tidak+Ada+Nota',
+          status: p.status === 'approved' ? 'Terverifikasi' : (p.status === 'rejected' ? 'Ditolak' : 'Menunggu Tinjauan'),
+          statusColor: p.status === 'approved' ? 'bg-tertiary-fixed text-on-tertiary-fixed-variant' : (p.status === 'rejected' ? 'bg-error-container text-error' : 'bg-secondary-fixed text-on-secondary-fixed-variant'),
+          statusIcon: p.status === 'approved' ? 'check_circle' : (p.status === 'rejected' ? 'cancel' : 'help'),
+          statusBy: p.approved_by ? `Oleh: SPV` : 'Belum dicek'
+        }));
+        setTransactions(formatted);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const totalPengeluaran = transactions.reduce((sum, item) => sum + item.rawAmount, 0);
+
+  const handleAddSubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    try {
+      const res = await window.apiClient.post('/petty-cash', data);
+      if (res.status === 'success') {
+        alert('Data berhasil ditambahkan');
+        setIsAddModalOpen(false);
+        fetchData();
+      }
+    } catch (err) {
+      alert('Gagal menambah data');
+      console.error(err);
+    }
+  };
+
+  const approveReimbursement = async (id) => {
+    try {
+      const res = await window.apiClient.put(`/petty-cash/${id}/approve`, {});
+      if (res.status === 'success') {
+        alert('Pengajuan Reimbursement berhasil disetujui!');
+        setIsApproveModalOpen(false);
+        fetchData();
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Gagal menyetujui');
+    }
+  };
 
   return (
     <div className="flex flex-col w-full pb-space-xl">
@@ -126,7 +112,11 @@ export default function AdminPettyCashScreen() {
           <p className="font-body-md text-body-md text-on-surface-variant">Pengawasan pengeluaran darurat, pembelian es & gas, serta audit struk transaksi harian kasir.</p>
         </div>
         {/* Quick Action Hub */}
-        <div className="flex flex-wrap items-center gap-space-sm">
+        <div className="flex items-center gap-space-sm self-end lg:self-auto shrink-0 flex-wrap lg:flex-nowrap justify-end">
+          <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 px-space-md py-2.5 rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-container transition-all shadow-sm">
+            <span className="material-symbols-outlined text-[18px] text-primary">add_circle</span>
+            <span className="font-label-md text-label-md">Catat Kas Keluar</span>
+          </button>
           <button onClick={() => setIsTopupModalOpen(true)} className="flex items-center gap-2 px-space-md py-2.5 rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-container transition-all shadow-sm">
             <span className="material-symbols-outlined text-[18px] text-primary">account_balance_wallet</span>
             <span className="font-label-md text-label-md">Top-Up Kas via VA BCA</span>
@@ -148,7 +138,7 @@ export default function AdminPettyCashScreen() {
           <div className="flex items-start justify-between">
             <div className="flex flex-col">
               <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Total Kas Keluar Bulan Ini</span>
-              <span className="font-headline-kpi text-headline-kpi text-on-surface mt-1">Rp 6.200.000</span>
+              <span className="font-headline-kpi text-headline-kpi text-on-surface mt-1">Rp {totalPengeluaran.toLocaleString('id-ID')}</span>
             </div>
             <div className="w-10 h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-primary">
               <span className="material-symbols-outlined text-[22px]">payments</span>
@@ -455,11 +445,11 @@ export default function AdminPettyCashScreen() {
                   </td>
                   <td className="py-3.5 px-space-md text-center whitespace-nowrap">
                     <div className="flex items-center justify-center gap-1">
-                      <button className="p-1 rounded text-on-surface-variant hover:text-primary hover:bg-surface-container" title="Lihat Detail Transaksi">
-                        <span className="material-symbols-outlined text-[18px]">visibility</span>
+                      <button onClick={() => approveReimbursement(trx.id)} className="p-1 rounded text-on-surface-variant hover:text-tertiary hover:bg-surface-container" title="Setujui">
+                        <span className="material-symbols-outlined text-[18px]">check_circle</span>
                       </button>
-                      <button className="p-1 rounded text-on-surface-variant hover:text-error hover:bg-surface-container" title="Tandai Selisih">
-                        <span className="material-symbols-outlined text-[18px]">flag</span>
+                      <button className="p-1 rounded text-on-surface-variant hover:text-error hover:bg-surface-container" title="Tolak">
+                        <span className="material-symbols-outlined text-[18px]">cancel</span>
                       </button>
                     </div>
                   </td>
@@ -563,34 +553,27 @@ export default function AdminPettyCashScreen() {
               <p className="font-body-md text-body-md text-on-surface-variant">
                 Persetujuan penggantian dana talangan pribadi kasir untuk pembelian operasional mendesak. Dana akan diganti via transfer atau saldo kas laci toko.
               </p>
-              <div className="p-space-sm rounded-lg bg-surface-container-low flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" id="rb-1" className="rounded accent-primary w-4 h-4" defaultChecked />
-                    <label htmlFor="rb-1" className="text-body-md font-semibold text-on-surface">Cabang BSD - Rian (Mentega Indomaret)</label>
+              {transactions.filter(t => t.status === 'Menunggu Tinjauan').map(trx => (
+                <div key={trx.id} className="p-space-sm rounded-lg bg-surface-container-low flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" id={`rb-${trx.id}`} className="rounded accent-primary w-4 h-4" defaultChecked />
+                      <label htmlFor={`rb-${trx.id}`} className="text-body-md font-semibold text-on-surface">{trx.branch} - {trx.cashier}</label>
+                    </div>
+                    <span className="font-bold text-on-surface">{trx.amount}</span>
                   </div>
-                  <span className="font-bold text-on-surface">Rp 36.000</span>
+                  <div className="text-label-sm text-on-surface-variant pl-6">Alasan: {trx.desc}</div>
                 </div>
-                <div className="text-label-sm text-on-surface-variant pl-6">Alasan: Beli mentega sachet darurat karena pesanan borongan kantor mendadak.</div>
-              </div>
-              <div className="p-space-sm rounded-lg bg-surface-container-low flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" id="rb-2" className="rounded accent-primary w-4 h-4" defaultChecked />
-                    <label htmlFor="rb-2" className="text-body-md font-semibold text-on-surface">Cabang Kemang - Siti (Es Kristal Tube)</label>
-                  </div>
-                  <span className="font-bold text-on-surface">Rp 48.000</span>
-                </div>
-                <div className="text-label-sm text-on-surface-variant pl-6">Alasan: Es batu mencair saat kendala freezer padam selama 30 menit.</div>
-              </div>
-              <div className="flex justify-between items-center p-space-sm rounded-lg bg-surface-container font-headline-sm text-headline-sm">
-                <span className="text-on-surface">Total Klaim Disetujui:</span>
-                <span className="text-primary font-bold">Rp 84.000</span>
-              </div>
+              ))}
             </div>
             <div className="p-space-md bg-surface-container-low flex justify-end gap-space-xs">
               <button onClick={() => setIsApproveModalOpen(false)} className="px-space-md py-2 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md">Batal</button>
-              <button onClick={approveReimbursement} className="px-space-md py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md font-semibold">Proses & Setujui Reimbursement</button>
+              <button onClick={() => {
+                 // in real scenario we would approve checked ones, for now we approve the first unapproved or fake it.
+                 const firstUnapproved = transactions.find(t => t.status === 'Menunggu Tinjauan');
+                 if(firstUnapproved) approveReimbursement(firstUnapproved.id);
+                 else setIsApproveModalOpen(false);
+              }} className="px-space-md py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md font-semibold">Proses & Setujui Reimbursement</button>
             </div>
           </div>
         </div>
@@ -646,6 +629,51 @@ export default function AdminPettyCashScreen() {
               <button onClick={() => setIsTopupModalOpen(false)} className="px-space-md py-2 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md">Tutup</button>
               <button onClick={processTopup} className="px-space-md py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md font-semibold">Generate Instruksi Transfer</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 bg-on-surface/40 backdrop-blur-sm flex items-center justify-center p-space-md">
+          <div className="w-full max-w-lg rounded-2xl bg-surface-container-lowest shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-space-md bg-surface-container-low flex items-center justify-between sticky top-0 z-10 border-b border-surface-container-high">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[22px]">add_circle</span>
+                <span className="font-headline-sm text-headline-sm text-on-surface">Catat Kas Keluar</span>
+              </div>
+              <button onClick={() => setIsAddModalOpen(false)} className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container">
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+            <form onSubmit={handleAddSubmit} className="flex flex-col overflow-y-auto">
+              <div className="p-space-md flex flex-col gap-space-sm">
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">Deskripsi Pengeluaran</label>
+                  <input type="text" name="description" required className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">Nominal (Rp)</label>
+                  <input type="number" name="amount" required className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">Cabang</label>
+                  <select name="branch_id" className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" required>
+                    <option value="1">Cabang Tebet</option>
+                    <option value="2">Cabang Kemang</option>
+                    <option value="3">Cabang BSD</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">Catatan Tambahan (Opsional)</label>
+                  <textarea name="notes" className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" rows="2"></textarea>
+                </div>
+              </div>
+              <div className="p-space-md bg-surface-container-low flex justify-end gap-space-xs sticky bottom-0 border-t border-surface-container-high">
+                <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-space-md py-2 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high">Batal</button>
+                <button type="submit" className="px-space-md py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md font-semibold hover:bg-on-primary-fixed-variant">Simpan</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

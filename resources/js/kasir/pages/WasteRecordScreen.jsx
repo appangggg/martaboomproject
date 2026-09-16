@@ -11,6 +11,22 @@ export default function WasteRecordScreen() {
     const [isSaving, setIsSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
     const [history, setHistory] = useState([]);
+    const [items, setItems] = useState([]);
+    
+    const loadItems = async () => {
+        try {
+            const response = await window.apiClient.get('/products/list');
+            if (response.status === 'success') {
+                const mappedItems = response.data.map(p => ({
+                    id: p.id,
+                    name: p.name + (p.unit ? ' (' + p.unit + ')' : '')
+                }));
+                setItems(mappedItems);
+            }
+        } catch (error) {
+            console.error('Error loading items:', error);
+        }
+    };
 
     const loadHistory = async () => {
         try {
@@ -25,6 +41,7 @@ export default function WasteRecordScreen() {
 
     useEffect(() => {
         loadHistory();
+        loadItems();
     }, []);
 
     const reasons = [
@@ -36,12 +53,6 @@ export default function WasteRecordScreen() {
         { id: 6, title: 'Lain-lain / Komplain Tamu', icon: 'sentiment_dissatisfied' },
     ];
 
-    const items = [
-        { id: 1, name: 'Terang Bulan Klasik (1 Loyang)' },
-        { id: 2, name: 'Martabak Telur Spesial (1 Porsi)' },
-        { id: 3, name: 'Adonan Mentah (1 Ember/Liter)' },
-        { id: 4, name: 'Telur Bebek (3 Butir)' },
-    ];
 
     const quickNotes = [
         { id: 1, text: 'Api kompor kebesaran' },

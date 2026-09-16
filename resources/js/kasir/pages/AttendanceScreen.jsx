@@ -7,12 +7,34 @@ export default function AttendanceScreen() {
     const [selectedCrew, setSelectedCrew] = useState('budi');
     const [statusToast, setStatusToast] = useState({ show: false, message: '' });
 
-    const crewList = [
-        { id: 'budi', name: 'Budi S.', role: 'Kasir 01', fullName: 'Budi Santoso', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD4Iw3BwDamshDdvNgUSAQYYlfJkyuN--vJYkZ3JoawBV2dLe08-IZA2G6YU6mgzKWRcFMd99oryrCnCp1KVO2fopa40h2S8nUFL0h0TDVm_Wmw3I5SB3NmEBHBAA5exrNwtOnHfckKw_AO1jgfhr2SHSVtZ8EwYkhGSI3gB204ImdcVVSDXnZzTWArem6LP9EDGvuYVmfs3sbZeUCj_poWla-Xm0WPHgIB9U9HacMLtbHWe-GkLe7Y' },
-        { id: 'siti', name: 'Siti A.', role: 'Koki Griddle', fullName: 'Siti Aminah', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCcJpJUaTA0Xu1PCdQ62HjOcocU2vBakda6sTex36tXe1m9AluNghOirrxSbAmpj8d316b71J7qn_pLzeBvfsW0mamRRXPBTy5RCeknuGnawmQE-rubO86HgDnNEeQIsJ6ULK02pm8WqfI0gaOrfL3N0J50Pd0KCWM0MACT5V3ZJGpystCXjt_WGFgrU30SWS8Dv20UvZ8eWuhPxLCN_iPhwjJWedsehBZ8PK2bY-VQQAWGKsJ1r_I4' },
-        { id: 'dimas', name: 'Dimas K.', role: 'Terang Bulan', fullName: 'Dimas Kurniawan', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC4rHNTc2ernZvOx0ekIZsXjHzEgHy6MhRHQC_u3zLor8bPAUWwbTjJ_pT_xm2c_fm3Jk4bFm4oQO0M8mbx4qZYX-abIJ3DadFWeXj9rR1i7_S3RCwq1y2VMVbhGJ-jgIpsRGaB08J5aztRYQsvbHNcN_sJGNgM6CWGya4odFeaM0FqhIrrvNTr8XK2NgHvikuEuvP_rfGGJUU2Z7p-McR2-AGtXiSvCiPyoAfyt6AjTdFQNs7xfPIw' },
-        { id: 'rian', name: 'Rian H.', role: 'Kitchen Helper', fullName: 'Rian Haryanto', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAGVP_6wQOlF88KE87kQYuhM91MkJelj9VKvQCZkOYVn8VCCwq3WMtwuAtJygj0IMPoukY62ebtntUV9CZer3Y--RDyTHzsEdR8BvAFkrOrMosJopT0Bz0a_Tv0SPZwZ8o5VtgxhGCPeyjIdPH7k4jx-FsgE9uI8pjU6OgkAkgW39dsomBVqwunX8hGGilGkhNEVabOP9FpXIGuNg69nR7g-ZcmvI89wzG0ryxbIodGT01NY7S5K-ya' }
-    ];
+
+    const [crewList, setCrewList] = useState([]);
+    const [isLoadingCrew, setIsLoadingCrew] = useState(true);
+
+    const loadCrew = async () => {
+        setIsLoadingCrew(true);
+        try {
+            const response = await window.apiClient.get('/admin/employees?branch_id=1');
+            if (response.status === 'success') {
+                const employees = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+                const mappedCrew = employees.map(emp => ({
+                    id: emp.id,
+                    name: emp.name.split(' ')[0] + ' ' + (emp.name.split(' ')[1] ? emp.name.split(' ')[1][0] + '.' : ''),
+                    role: emp.role || 'Staff',
+                    fullName: emp.name,
+                    img: emp.avatar_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(emp.name)
+                }));
+                setCrewList(mappedCrew);
+                if (mappedCrew.length > 0) {
+                    setSelectedCrew(mappedCrew[0].id);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading crew:', error);
+        } finally {
+            setIsLoadingCrew(false);
+        }
+    };
 
     const [attendances, setAttendances] = useState([]);
 
@@ -29,6 +51,7 @@ export default function AttendanceScreen() {
 
     useEffect(() => {
         loadAttendances();
+        loadCrew();
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);

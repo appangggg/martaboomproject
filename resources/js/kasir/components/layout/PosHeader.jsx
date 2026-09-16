@@ -1,7 +1,54 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
 
 export default function PosHeader() {
+  const [cashier, setCashier] = useState(null);
+  const navRef = useRef(null);
+
+  const handleWheel = (e) => {
+    if (navRef.current) {
+      navRef.current.scrollLeft += e.deltaY;
+    }
+  };
+
+  const handleMouseDown = (e) => {
+    if (navRef.current) {
+      navRef.current.isDown = true;
+      navRef.current.startX = e.pageX - navRef.current.offsetLeft;
+      navRef.current.scrollLeftStart = navRef.current.scrollLeft;
+      navRef.current.classList.add('cursor-grabbing');
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (navRef.current) {
+      navRef.current.isDown = false;
+      navRef.current.classList.remove('cursor-grabbing');
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (navRef.current) {
+      navRef.current.isDown = false;
+      navRef.current.classList.remove('cursor-grabbing');
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (!navRef.current || !navRef.current.isDown) return;
+    e.preventDefault();
+    const x = e.pageX - navRef.current.offsetLeft;
+    const walk = (x - navRef.current.startX) * 1.5; // scroll-speed
+    navRef.current.scrollLeft = navRef.current.scrollLeftStart - walk;
+  };
+
+  useEffect(() => {
+    const saved = localStorage.getItem('pos_cashier');
+    if (saved) {
+      setCashier(JSON.parse(saved));
+    }
+  }, []);
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-surface/90 backdrop-blur-xl shadow-[0_4px_20px_-4px_rgba(70,42,25,0.08)]">
       <div className="h-20 w-full px-space-lg flex items-center justify-between gap-space-md">
@@ -21,7 +68,16 @@ export default function PosHeader() {
           </div>
         </div>
 
-        <nav className="hidden lg:flex items-center gap-space-xs bg-surface-container-low p-1.5 rounded-full shadow-inner overflow-x-auto">
+        <nav 
+          ref={navRef} 
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseLeave={handleMouseLeave}
+          onMouseUp={handleMouseUp}
+          onMouseMove={handleMouseMove}
+          className="hidden lg:flex items-center gap-space-xs bg-surface-container-low p-1.5 rounded-full shadow-inner overflow-x-auto cursor-grab" 
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
           <NavLink to="/order" className={({ isActive }) => `px-space-md py-2 rounded-full font-bold transition-all duration-150 active:scale-95 whitespace-nowrap ${isActive ? 'bg-primary-container text-on-primary shadow-[0_2px_8px_rgba(217,142,63,0.35)]' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'}`}>Kasir Utama</NavLink>
           <NavLink to="/held-bills" className={({ isActive }) => `px-space-md py-2 rounded-full font-label-lg text-label-lg transition-all duration-150 active:scale-95 whitespace-nowrap ${isActive ? 'bg-primary-container text-on-primary font-bold shadow-[0_2px_8px_rgba(217,142,63,0.35)]' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'}`}>Daftar Pesanan</NavLink>
           <NavLink to="/petty-cash" className={({ isActive }) => `px-space-md py-2 rounded-full font-label-lg text-label-lg transition-all duration-150 active:scale-95 whitespace-nowrap ${isActive ? 'bg-primary-container text-on-primary font-bold shadow-[0_2px_8px_rgba(217,142,63,0.35)]' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'}`}>Kas Kecil &amp; Shift</NavLink>
@@ -41,8 +97,8 @@ export default function PosHeader() {
               <span className="material-symbols-outlined text-on-primary text-[18px]">person</span>
             </div>
             <div className="flex flex-col text-left pr-space-xs">
-              <span className="font-label-md text-label-md text-on-surface font-bold leading-tight">Budi Santoso</span>
-              <span className="font-label-sm text-label-sm text-on-surface-variant leading-tight">Kasir 01</span>
+              <span className="font-label-md text-label-md text-on-surface font-bold leading-tight">{cashier ? cashier.name : 'Kasir Utama'}</span>
+              <span className="font-label-sm text-label-sm text-on-surface-variant leading-tight">{cashier ? cashier.role : 'Kasir 01'}</span>
             </div>
           </div>
           <NavLink to="/settings" aria-label="Pengaturan POS" className={({ isActive }) => `w-10 h-10 rounded-full flex items-center justify-center transition-colors active:scale-95 ${isActive ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'}`} type="button">
