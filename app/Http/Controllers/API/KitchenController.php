@@ -9,7 +9,7 @@ class KitchenController extends Controller
 {
     public function recipes()
     {
-        \ = [
+        $recipes = [
             'tb-manis' => [
                 'id' => 'tb-manis',
                 'title' => 'Adonan Terang Bulan Manis',
@@ -54,6 +54,7 @@ class KitchenController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' =>         ]);
+            'data' => $recipes
+        ]);
     }
 }
