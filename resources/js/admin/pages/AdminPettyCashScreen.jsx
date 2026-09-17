@@ -16,6 +16,11 @@ export default function AdminPettyCashScreen() {
     setTopupNominal(`Rp ${amount}`);
   };
 
+  const processTopup = () => {
+    alert('Instruksi transfer berhasil dibuat! Silakan transfer ke nomor VA BCA yang tertera.');
+    setIsTopupModalOpen(false);
+  };
+
   const confirmReceipt = () => {
     alert('Bukti nota berhasil ditandai valid!');
     setIsReceiptModalOpen(false);

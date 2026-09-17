@@ -13,6 +13,9 @@ export default function ShiftScreen() {
         const saved = localStorage.getItem('pos_cashier');
         if (saved) {
             setCashier(JSON.parse(saved));
+        } else {
+            // Jika belum login, redirect ke halaman login
+            navigate('/login', { replace: true });
         }
     }, []);
 
@@ -42,11 +45,15 @@ export default function ShiftScreen() {
     };
 
     const submitOpenShift = async () => {
+        if (!cashier) {
+            navigate('/login', { replace: true });
+            return;
+        }
         setIsProcessing(true);
         try {
             const response = await apiClient.post('/shift/start', {
-                branch_id: cashier ? cashier.branch_id : 1,
-                user_id: cashier ? cashier.id : 1,
+                branch_id: cashier.branch_id || 1,
+                user_id: cashier.id,
                 shift_type: 'Pagi',
                 opening_cash: amount
             });
@@ -57,7 +64,6 @@ export default function ShiftScreen() {
                 alert(response.message || 'Terjadi kesalahan.');
             }
         } catch (error) {
-            // error.data tersedia karena apiClient kini menggunakan ApiError
             const message = error.data?.message || error.message || 'Error jaringan.';
             alert('Gagal membuka shift. ' + message);
         } finally {

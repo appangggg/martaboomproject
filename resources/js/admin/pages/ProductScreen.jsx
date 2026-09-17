@@ -9,6 +9,8 @@ export default function ProductScreen() {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -44,8 +46,10 @@ export default function ProductScreen() {
   }, []);
 
   const handleOpenModal = (product = null) => {
+    setImageFile(null);
     if (product) {
       setEditingProduct(product);
+      setImagePreview(product.image_url || null);
       setFormData({
         name: product.name,
         category_id: product.category_id,
@@ -56,6 +60,7 @@ export default function ProductScreen() {
       });
     } else {
       setEditingProduct(null);
+      setImagePreview(null);
       setFormData({
         name: '',
         category_id: categories.length > 0 ? categories[0].id : '',
@@ -71,6 +76,18 @@ export default function ProductScreen() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingProduct(null);
+    setImagePreview(null);
+    setImageFile(null);
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result);
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleChange = (e) => {
@@ -81,15 +98,21 @@ export default function ProductScreen() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const payload = {
-        ...formData,
-        is_active: parseInt(formData.is_active)
-      };
+      const fd = new FormData();
+      fd.append('name', formData.name);
+      fd.append('category_id', formData.category_id);
+      fd.append('base_price', formData.base_price);
+      fd.append('description', formData.description);
+      fd.append('type', formData.type);
+      fd.append('is_active', parseInt(formData.is_active));
+      if (imageFile) fd.append('image_url', imageFile);
 
+      const config = { headers: { 'Content-Type': 'multipart/form-data' } };
       if (editingProduct) {
-        await axios.put(`/api/admin/products/${editingProduct.id}`, payload);
+        fd.append('_method', 'PUT');
+        await axios.post(`/api/admin/products/${editingProduct.id}`, fd, config);
       } else {
-        await axios.post('/api/admin/products', payload);
+        await axios.post('/api/admin/products', fd, config);
       }
       
       handleCloseModal();
@@ -115,65 +138,81 @@ export default function ProductScreen() {
   return (
     <div className="flex flex-col w-full pb-8">
       {/* Header Area */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 mb-1">Daftar Produk</h1>
-          <p className="text-sm text-slate-500">Kelola menu dan produk yang dijual di kasir</p>
+          <h1 className="font-headline-md text-headline-md text-on-surface font-bold">Daftar Produk & Menu</h1>
+          <p className="font-body-md text-body-md text-on-surface-variant mt-0.5">Kelola produk, harga, dan gambar menu yang tampil di kasir</p>
         </div>
         
         <button 
           onClick={() => handleOpenModal()}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white transition-colors text-sm font-semibold shadow-sm"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-on-primary hover:opacity-90 transition-colors font-label-md text-label-md font-semibold shadow-sm"
         >
-          <span className="material-symbols-outlined text-[18px]">add</span>
+          <span className="material-symbols-outlined text-[18px]">add_circle</span>
           Tambah Produk
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="rounded-xl bg-surface-container-lowest shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-gray-500 font-medium">Memuat data produk...</div>
+          <div className="p-12 text-center text-on-surface-variant">
+            <span className="material-symbols-outlined text-[40px] block mb-2 animate-spin">progress_activity</span>
+            Memuat data produk...
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50/50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-100">
-                  <th className="px-6 py-4 font-medium">Nama Produk</th>
-                  <th className="px-6 py-4 font-medium">Kategori</th>
-                  <th className="px-6 py-4 font-medium">Tipe</th>
-                  <th className="px-6 py-4 font-medium">Harga Dasar</th>
-                  <th className="px-6 py-4 font-medium">Status</th>
-                  <th className="px-6 py-4 font-medium text-right">Aksi</th>
+                <tr className="bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">
+                  <th className="px-4 py-3.5">Gambar</th>
+                  <th className="px-4 py-3.5">Nama Produk</th>
+                  <th className="px-4 py-3.5">Kategori</th>
+                  <th className="px-4 py-3.5">Tipe</th>
+                  <th className="px-4 py-3.5 text-right">Harga</th>
+                  <th className="px-4 py-3.5 text-center">Status</th>
+                  <th className="px-4 py-3.5 text-right">Aksi</th>
                 </tr>
               </thead>
-              <tbody className="text-sm text-slate-600">
+              <tbody className="font-body-md text-body-md text-on-surface">
                 {products.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="p-12 text-center text-gray-400">Belum ada produk.</td>
+                    <td colSpan="7" className="p-12 text-center text-on-surface-variant">
+                      <span className="material-symbols-outlined text-[40px] block mb-2 opacity-40">restaurant_menu</span>
+                      Belum ada produk. Klik "Tambah Produk" untuk memulai.
+                    </td>
                   </tr>
                 ) : (
                   products.map(product => (
-                    <tr key={product.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-slate-800">{product.name}</span>
-                          {product.description && <span className="text-xs text-gray-400 mt-0.5">{product.description}</span>}
+                    <tr key={product.id} className="border-t border-surface-container hover:bg-surface-container/30 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-surface-container flex items-center justify-center shadow-sm">
+                          {product.image_url ? (
+                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="material-symbols-outlined text-on-surface-variant text-[20px]">image</span>
+                          )}
                         </div>
                       </td>
-                      <td className="px-6 py-4">{product.category ? product.category.name : '-'}</td>
-                      <td className="px-6 py-4 capitalize">{product.type || 'main'}</td>
-                      <td className="px-6 py-4 font-semibold text-slate-800">Rp {product.base_price.toLocaleString('id-ID')}</td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${product.is_active ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-on-surface">{product.name}</p>
+                        {product.description && <p className="font-label-sm text-label-sm text-on-surface-variant mt-0.5 line-clamp-1">{product.description}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-on-surface-variant">{product.category ? product.category.name : '—'}</td>
+                      <td className="px-4 py-3 capitalize">
+                        <span className="px-2 py-0.5 rounded bg-surface-container font-label-sm text-label-sm text-on-surface">{product.type || 'main'}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-on-surface">Rp {product.base_price.toLocaleString('id-ID')}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2.5 py-1 rounded-full font-label-sm text-label-sm font-semibold ${product.is_active ? 'bg-tertiary-fixed text-on-tertiary-fixed-variant' : 'bg-surface-container text-on-surface-variant'}`}>
                           {product.is_active ? 'Aktif' : 'Non-aktif'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => handleOpenModal(product)} className="p-1.5 rounded-md text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors" title="Edit">
+                          <button onClick={() => handleOpenModal(product)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors">
                             <span className="material-symbols-outlined text-[18px]">edit</span>
                           </button>
-                          <button onClick={() => handleDelete(product.id)} className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Hapus">
+                          <button onClick={() => handleDelete(product.id)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-error hover:bg-error-container transition-colors">
                             <span className="material-symbols-outlined text-[18px]">delete</span>
                           </button>
                         </div>
@@ -281,6 +320,29 @@ export default function ProductScreen() {
                   rows="2"
                   className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
                 ></textarea>
+              </div>
+
+              {/* Input Gambar */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-slate-700">Gambar Produk (Opsional)</label>
+                {imagePreview && (
+                  <div className="w-full h-40 rounded-lg overflow-hidden bg-gray-100 mb-2 relative">
+                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => { setImagePreview(null); setImageFile(null); }}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-slate-900/50 text-white flex items-center justify-center hover:bg-slate-900/70 transition-all"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">close</span>
+                    </button>
+                  </div>
+                )}
+                <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                  <span className="material-symbols-outlined text-gray-400 text-[28px] mb-1">cloud_upload</span>
+                  <span className="text-sm text-gray-500">{imagePreview ? 'Ganti gambar' : 'Klik untuk upload gambar'}</span>
+                  <span className="text-xs text-gray-400 mt-0.5">JPG, PNG, WEBP maks. 2MB</span>
+                  <input type="file" name="image_url" accept="image/*" onChange={handleImageChange} className="hidden" />
+                </label>
               </div>
               
               <div className="mt-6 flex items-center justify-end gap-3">

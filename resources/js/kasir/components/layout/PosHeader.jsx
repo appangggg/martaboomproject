@@ -69,18 +69,15 @@ export default function PosHeader() {
   }, []);
 
   const loadBranch = async (branchId) => {
-    // First check cache
+    // Tampilkan dari cache dulu (tanpa strict id match) agar tidak stuck loading
     const cached = localStorage.getItem('pos_branch');
     if (cached) {
       try {
-        const data = JSON.parse(cached);
-        if (data.id === branchId) {
-          setBranch(data);
-          return;
-        }
+        setBranch(JSON.parse(cached));
       } catch (_) { /* ignore */ }
     }
 
+    // Fetch di background untuk update data terbaru
     try {
       const res = await fetch(`/api/branches/current?branch_id=${branchId}`, {
         headers: { 'Accept': 'application/json' },
