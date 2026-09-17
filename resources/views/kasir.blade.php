@@ -13,6 +13,9 @@
     @vite('resources/js/kasir/main.jsx')
 </head>
 <body>
+    <script>
+        window.__APP_BASE_URL__ = "{{ request()->getBaseUrl() }}";
+    </script>
     <div id="app"></div>
 </body>
 </html>

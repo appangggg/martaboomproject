@@ -8,6 +8,12 @@ export default function PettyCashScreen() {
     const [description, setDescription] = useState('');
     const [history, setHistory] = useState([]);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [cashier, setCashier] = useState(null);
+
+    useEffect(() => {
+        const saved = localStorage.getItem('pos_cashier');
+        if (saved) setCashier(JSON.parse(saved));
+    }, []);
 
     const categories = [
         { id: 'gas', icon: 'propane_tank', title: 'Gas Elpiji 3kg', subtitle: 'Bahan Bakar' },
@@ -24,7 +30,7 @@ export default function PettyCashScreen() {
         try {
             const res = await apiClient.get('/petty-cash?branch_id=1');
             if (res.status === 'success') {
-                setHistory(res.data);
+                setHistory(Array.isArray(res.data) ? res.data : (res.data.data || []));
             }
         } catch (e) {
             console.error(e);
@@ -56,8 +62,8 @@ export default function PettyCashScreen() {
         setIsProcessing(true);
         try {
             const payload = {
-                branch_id: 1, // default
-                user_id: 1, // default
+                branch_id: cashier ? cashier.branch_id : 1,
+                user_id: cashier ? cashier.id : 1,
                 type: 'out',
                 category: selectedCategory,
                 amount: nominal,

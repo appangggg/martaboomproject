@@ -27,38 +27,41 @@ class ShiftController extends Controller
     public function start(Request $request)
     {
         $request->validate([
-            'branch_id' => 'required|exists:branches,id',
-            'user_id' => 'required|exists:users,id',
+            'branch_id' => 'nullable|integer',
+            'user_id'   => 'required|integer',
             'shift_type' => 'required|string',
             'opening_cash' => 'required|numeric'
         ]);
 
+        $branchId = $request->branch_id ?: 1;
+        $userId   = $request->user_id;
+
         // Check if there is already an open shift for this user and branch
-        $active = Shift::where('branch_id', $request->branch_id)
-            ->where('user_id', $request->user_id)
+        $active = Shift::where('branch_id', $branchId)
+            ->where('user_id', $userId)
             ->where('status', 'open')
             ->first();
 
         if ($active) {
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Anda sudah memiliki shift yang aktif.'
             ], 400);
         }
 
         $shift = Shift::create([
-            'branch_id' => $request->branch_id,
-            'user_id' => $request->user_id,
-            'shift_type' => $request->shift_type,
+            'branch_id'    => $branchId,
+            'user_id'      => $userId,
+            'shift_type'   => $request->shift_type,
             'opening_cash' => $request->opening_cash,
-            'status' => 'open',
-            'opened_at' => now(),
+            'status'       => 'open',
+            'opened_at'    => now(),
         ]);
 
         return response()->json([
-            'status' => 'success',
+            'status'  => 'success',
             'message' => 'Shift berhasil dimulai',
-            'data' => $shift
+            'data'    => $shift
         ]);
     }
 

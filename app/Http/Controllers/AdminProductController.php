@@ -31,8 +31,14 @@ class AdminProductController extends Controller
             'is_active' => 'boolean',
             'description' => 'nullable|string',
             'type' => 'required|in:main,addon,variant',
-            'sort_order' => 'integer'
+            'sort_order' => 'integer',
+            'image_url' => 'nullable|image|max:2048'
         ]);
+
+        if ($request->hasFile('image_url')) {
+            $path = $request->file('image_url')->store('products', 'public');
+            $validated['image_url'] = $path;
+        }
 
         $product = Product::create($validated);
 
@@ -68,8 +74,18 @@ class AdminProductController extends Controller
             'is_active' => 'boolean',
             'description' => 'nullable|string',
             'type' => 'sometimes|required|in:main,addon,variant',
-            'sort_order' => 'integer'
+            'sort_order' => 'integer',
+            'image_url' => 'nullable|image|max:2048'
         ]);
+
+        if ($request->hasFile('image_url')) {
+            // Optionally delete old image if exists
+            if ($product->image_url && \Illuminate\Support\Facades\Storage::disk('public')->exists($product->image_url)) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($product->image_url);
+            }
+            $path = $request->file('image_url')->store('products', 'public');
+            $validated['image_url'] = $path;
+        }
 
         $product->update($validated);
 

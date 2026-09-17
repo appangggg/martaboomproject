@@ -13,7 +13,9 @@ import WasteRecordScreen from './pages/WasteRecordScreen';
 import SettingsScreen from './pages/SettingsScreen';
 
 export default function AppKasir() {
-    const basename = window.location.pathname.startsWith('/kasir') ? '/kasir' : '/';
+    // basename diinjeksi dari Laravel via window.__APP_BASE_URL__
+    // Contoh: '/terbul/public' di Laragon, atau '' di production domain
+    const basename = window.__APP_BASE_URL__ || '';
     return (
         <BrowserRouter basename={basename}>
             <Routes>
