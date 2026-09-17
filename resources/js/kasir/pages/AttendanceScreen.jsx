@@ -4,341 +4,408 @@ import PosHeader from '../components/layout/PosHeader';
 export default function AttendanceScreen() {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [pinCode, setPinCode] = useState('');
-    const [selectedCrew, setSelectedCrew] = useState('budi');
-    const [statusToast, setStatusToast] = useState({ show: false, message: '' });
-
+    const [selectedCrewId, setSelectedCrewId] = useState(null);
+    const [statusToast, setStatusToast] = useState({ show: false, message: '', type: 'success' });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [pinError, setPinError] = useState('');
 
     const [crewList, setCrewList] = useState([]);
-    const [isLoadingCrew, setIsLoadingCrew] = useState(true);
+    const [attendances, setAttendances] = useState([]);
+    const [branch, setBranch] = useState(null);
+    const [activeShift, setActiveShift] = useState(null);
+
+    // Load branch info from localStorage (set by login/header)
+    useEffect(() => {
+        const saved = localStorage.getItem('pos_branch');
+        if (saved) {
+            try { setBranch(JSON.parse(saved)); } catch (_) {}
+        }
+    }, []);
 
     const loadCrew = async () => {
-        setIsLoadingCrew(true);
         try {
-            const response = await window.apiClient.get('/admin/employees?branch_id=1');
-            if (response.status === 'success') {
-                const employees = Array.isArray(response.data) ? response.data : (response.data?.data || []);
-                const mappedCrew = employees.map(emp => ({
+            const branchId = branch?.id || 1;
+            const res = await window.apiClient.get(`/admin/employees?branch_id=${branchId}`);
+            if (res.status === 'success') {
+                const employees = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+                const mapped = employees.map(emp => ({
                     id: emp.id,
-                    name: emp.name.split(' ')[0] + ' ' + (emp.name.split(' ')[1] ? emp.name.split(' ')[1][0] + '.' : ''),
+                    name: emp.name,
                     role: emp.role || 'Staff',
-                    fullName: emp.name,
-                    img: emp.avatar_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(emp.name)
+                    branch_id: emp.branch_id,
                 }));
-                setCrewList(mappedCrew);
-                if (mappedCrew.length > 0) {
-                    setSelectedCrew(mappedCrew[0].id);
+                setCrewList(mapped);
+                if (mapped.length > 0 && !selectedCrewId) {
+                    setSelectedCrewId(mapped[0].id);
                 }
             }
-        } catch (error) {
-            console.error('Error loading crew:', error);
-        } finally {
-            setIsLoadingCrew(false);
+        } catch (err) {
+            console.error('Error loading crew:', err);
         }
     };
 
-    const [attendances, setAttendances] = useState([]);
-
     const loadAttendances = async () => {
         try {
-            const response = await window.apiClient.get('/attendances?branch_id=1');
-            if (response.status === 'success') {
-                setAttendances(response.data);
+            const branchId = branch?.id || 1;
+            const res = await window.apiClient.get(`/attendances?branch_id=${branchId}`);
+            if (res.status === 'success') {
+                setAttendances(res.data);
             }
-        } catch (error) {
-            console.error('Error loading attendances:', error);
+        } catch (err) {
+            console.error('Error loading attendances:', err);
+        }
+    };
+
+    const loadActiveShift = async () => {
+        try {
+            const cashier = JSON.parse(localStorage.getItem('pos_cashier') || '{}');
+            const userId = cashier?.id || 1;
+            const res = await window.apiClient.get(`/shift/current?user_id=${userId}&branch_id=${branch?.id || 1}`);
+            if (res.status === 'success' && res.data) {
+                setActiveShift(res.data);
+            }
+        } catch (err) {
+            console.error('Error loading shift:', err);
         }
     };
 
     useEffect(() => {
-        loadAttendances();
         loadCrew();
+        loadAttendances();
+        loadActiveShift();
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
-    }, []);
+    }, [branch]);
 
     const formatTime = (date) => {
-        const hours = String(date.getHours()).padStart(2, '0');
-        const mins = String(date.getMinutes()).padStart(2, '0');
-        const secs = String(date.getSeconds()).padStart(2, '0');
-        return `${hours}:${mins}:${secs}`;
+        return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
     };
 
     const formatDate = (date) => {
-        const options = { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' };
-        return date.toLocaleDateString('id-ID', options);
+        return date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     };
 
-    const showToast = (message) => {
-        setStatusToast({ show: true, message });
-        setTimeout(() => setStatusToast({ show: false, message: '' }), 3500);
+    const showToast = (message, type = 'success') => {
+        setStatusToast({ show: true, message, type });
+        setTimeout(() => setStatusToast({ show: false, message: '', type: 'success' }), 4000);
     };
 
     const handlePinPress = (val) => {
-        if (pinCode.length < 4) {
-            const newPin = pinCode + val;
-            setPinCode(newPin);
-            if (newPin.length === 4) {
-                showToast("PIN Terverifikasi: Menunggu Aksi Shift");
-            }
+        if (isSubmitting) return;
+        if (pinCode.length < 6) {
+            const next = pinCode + val;
+            setPinCode(next);
+            setPinError('');
         }
     };
 
     const handleClearPin = () => {
         setPinCode(prev => prev.slice(0, -1));
+        setPinError('');
+    };
+
+    const handleClearAll = () => {
+        setPinCode('');
+        setPinError('');
     };
 
     const selectCrew = (id) => {
-        setSelectedCrew(id);
+        setSelectedCrewId(id);
         setPinCode('');
+        setPinError('');
     };
 
     const handleAction = async (action) => {
-        if (action === 'retake') {
-            showToast("Kamera dikalibrasi ulang: Tatap lurus ke lensa");
-            setPinCode('');
+        if (!selectedCrewId) {
+            showToast('Pilih karyawan terlebih dahulu.', 'error');
+            return;
+        }
+        if (pinCode.length < 4) {
+            setPinError('Masukkan minimal 4 digit PIN.');
+            return;
+        }
+        if (!activeShift && action !== 'retake') {
+            showToast('Tidak ada shift aktif. Buka shift terlebih dahulu.', 'error');
             return;
         }
 
+        setIsSubmitting(true);
         try {
-            const response = await window.apiClient.post('/attendances', {
-                user_id: 1, // simulated user based on selectedCrew
-                shift_id: 1, // simulated active shift
-                type: action
+            const res = await window.apiClient.post('/attendances', {
+                user_id: selectedCrewId,
+                pin: pinCode,
+                type: action,
+                shift_id: activeShift?.id || null,
             });
 
-            if (response.status === 'success') {
-                if (action === 'clock_in') showToast("SUKSES: Clock In Masuk Shift Tersimpan & Dicetak!");
-                if (action === 'clock_out') showToast("SUKSES: Clock Out Selesai Shift. Terima Kasih!");
-                if (action === 'break_start') showToast("STATUS: Istirahat Shift Dimulai (30 Menit)");
+            if (res.status === 'success') {
+                const messages = {
+                    clock_in: '✅ Clock In berhasil! Selamat bertugas.',
+                    clock_out: '✅ Clock Out berhasil! Terima kasih sudah bertugas.',
+                    break_start: '☕ Istirahat dimulai. Kembali sebelum 30 menit ya!',
+                    break_end: '✅ Istirahat selesai. Lanjut bertugas!',
+                };
+                showToast(messages[action] || 'Absensi berhasil dicatat.', 'success');
+                setPinCode('');
                 loadAttendances();
             } else {
-                alert(response.message);
+                setPinError(res.message || 'Terjadi kesalahan.');
+                setPinCode('');
             }
-        } catch (error) {
-            alert('Gagal mencatat absensi: ' + (error.response?.data?.message || 'Error jaringan.'));
+        } catch (err) {
+            const msg = err?.data?.message || 'PIN salah atau server error.';
+            if (msg.toLowerCase().includes('pin')) {
+                setPinError('PIN salah. Coba lagi.');
+            } else {
+                showToast(msg, 'error');
+            }
+            setPinCode('');
+        } finally {
+            setIsSubmitting(false);
         }
-        setPinCode('');
     };
+
+    const selectedCrew = crewList.find(c => c.id === selectedCrewId);
+    const branchName = branch?.name || 'Memuat Cabang...';
 
     return (
         <div className="bg-background font-body-md text-on-surface antialiased min-h-screen select-none">
             <PosHeader />
-            
+
             <main className="w-full pt-20 bg-background pb-10">
-                <div className="flex flex-col w-full">
-                    <div className="w-full max-w-[1600px] mx-auto p-space-md lg:p-space-lg">
-                        
-                        {/* Sub-header Breadcrumb Bar */}
-                        <div className="flex flex-wrap items-center justify-between gap-space-sm mb-space-md">
-                            <div className="flex items-center gap-space-sm">
-                                <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary shadow-sm">
-                                    <span className="material-symbols-outlined text-[24px]">timer</span>
+                <div className="w-full max-w-[1600px] mx-auto p-space-md lg:p-space-lg">
+
+                    {/* Sub-header */}
+                    <div className="flex flex-wrap items-center justify-between gap-space-sm mb-space-md">
+                        <div className="flex items-center gap-space-sm">
+                            <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary shadow-sm">
+                                <span className="material-symbols-outlined text-[24px]">timer</span>
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h1 className="font-headline-md text-headline-md text-on-surface">Absensi &amp; Presensi Tim</h1>
+                                    {activeShift && (
+                                        <span className="px-2.5 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm font-bold capitalize">
+                                            {activeShift.shift_type}
+                                        </span>
+                                    )}
                                 </div>
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <h1 className="font-headline-md text-headline-md text-on-surface">Absensi &amp; Presensi Tim Shift</h1>
-                                        <span className="px-2.5 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm font-bold">Shift Sore-Malam</span>
-                                    </div>
-                                    <p className="font-body-md text-body-md text-on-surface-variant">Cabang Tebet Barat • Jam Operasional: 16:00 – 00:30 WIB</p>
+                                <p className="font-body-md text-body-md text-on-surface-variant">
+                                    {branchName} • {formatDate(currentTime)}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="font-mono text-2xl font-black text-primary tracking-widest bg-surface-container-low px-4 py-2 rounded-full shadow-sm">
+                            {formatTime(currentTime)} WIB
+                        </div>
+                    </div>
+
+                    {/* Main Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start">
+
+                        {/* KIRI: Pilih Karyawan + PIN + Aksi */}
+                        <div className="lg:col-span-5 flex flex-col gap-space-md">
+
+                            {/* Pilih Karyawan */}
+                            <div className="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm">
+                                <span className="font-label-sm text-label-sm uppercase font-bold text-on-surface-variant tracking-wider block mb-3">
+                                    1. Pilih Karyawan
+                                </span>
+                                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                                    {crewList.length === 0 && (
+                                        <p className="col-span-2 text-center text-on-surface-variant font-body-md text-body-md py-4">Memuat daftar karyawan...</p>
+                                    )}
+                                    {crewList.map(crew => {
+                                        const isActive = selectedCrewId === crew.id;
+                                        return (
+                                            <button
+                                                key={crew.id}
+                                                onClick={() => selectCrew(crew.id)}
+                                                className={`p-3 rounded-xl flex items-center gap-3 text-left transition-all shadow-sm ${isActive ? 'bg-primary-container ring-2 ring-primary' : 'bg-surface-container-low hover:bg-surface-container'}`}
+                                                type="button"
+                                            >
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${isActive ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface-variant'}`}>
+                                                    {crew.name.substring(0, 2).toUpperCase()}
+                                                </div>
+                                                <div className="flex flex-col min-w-0">
+                                                    <span className="font-label-md text-label-md text-on-surface font-bold truncate">{crew.name.split(' ')[0]}</span>
+                                                    <span className="font-label-sm text-label-sm text-on-surface-variant capitalize">{crew.role}</span>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-space-xs bg-surface-container-low px-space-md py-2 rounded-full shadow-sm">
-                                <span className="material-symbols-outlined text-tertiary text-[20px]">verified_user</span>
-                                <span className="font-label-md text-label-md text-on-surface font-semibold">Face Verification &amp; Geofence Aktif</span>
+
+                            {/* PIN Input */}
+                            <div className="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="font-label-sm text-label-sm uppercase font-bold text-on-surface-variant tracking-wider">
+                                        2. Masukkan PIN (4-6 Digit)
+                                    </span>
+                                    <span className="font-label-sm text-label-sm text-primary font-bold">{pinCode.length}/6</span>
+                                </div>
+
+                                {/* PIN Dots */}
+                                <div className={`flex items-center justify-center gap-3 bg-surface-container-low p-4 rounded-xl shadow-inner mb-3 ${pinError ? 'ring-2 ring-error' : ''}`}>
+                                    {[...Array(6)].map((_, i) => (
+                                        <div key={i} className={`w-3.5 h-3.5 rounded-full transition-all duration-200 ${i < pinCode.length ? 'bg-primary shadow-[0_0_10px_rgba(217,142,63,0.7)] scale-125' : 'bg-surface-variant'}`}></div>
+                                    ))}
+                                </div>
+
+                                {pinError && (
+                                    <div className="mb-3 px-3 py-2 rounded-lg bg-error-container text-on-error-container font-label-sm text-label-sm flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-[16px]">error</span>
+                                        {pinError}
+                                    </div>
+                                )}
+
+                                {/* Numpad */}
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                                        <button
+                                            key={num}
+                                            onClick={() => handlePinPress(num.toString())}
+                                            disabled={isSubmitting}
+                                            className="h-14 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface font-bold text-xl shadow-sm active:translate-y-0.5 transition-all disabled:opacity-50"
+                                            type="button"
+                                        >
+                                            {num}
+                                        </button>
+                                    ))}
+                                    <button onClick={handleClearPin} disabled={isSubmitting} className="h-14 rounded-xl bg-error-container text-error hover:opacity-90 shadow-sm active:translate-y-0.5 transition-all flex items-center justify-center disabled:opacity-50" type="button">
+                                        <span className="material-symbols-outlined text-[22px]">backspace</span>
+                                    </button>
+                                    <button onClick={() => handlePinPress('0')} disabled={isSubmitting} className="h-14 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface font-bold text-xl shadow-sm active:translate-y-0.5 transition-all disabled:opacity-50" type="button">0</button>
+                                    <button onClick={handleClearAll} disabled={isSubmitting} className="h-14 rounded-xl bg-surface-container text-on-surface-variant hover:bg-surface-container-high shadow-sm active:translate-y-0.5 transition-all flex items-center justify-center text-xs font-bold disabled:opacity-50" type="button">HAPUS</button>
+                                </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm flex flex-col gap-3">
+                                <span className="font-label-sm text-label-sm uppercase font-bold text-on-surface-variant tracking-wider">3. Pilih Aksi Shift</span>
+
+                                <button
+                                    onClick={() => handleAction('clock_in')}
+                                    disabled={isSubmitting || pinCode.length < 4}
+                                    className="h-16 w-full rounded-2xl bg-primary text-on-primary font-title-lg text-title-lg flex items-center justify-between px-space-lg shadow-md transition-all active:translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed group"
+                                    type="button"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>login</span>
+                                        <div className="flex flex-col text-left">
+                                            <span className="font-bold leading-none">CLOCK IN (Masuk Shift)</span>
+                                            <span className="text-sm opacity-80 mt-0.5">
+                                                {selectedCrew ? selectedCrew.name : 'Pilih karyawan dulu'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span className="material-symbols-outlined text-[24px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                                </button>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={() => handleAction('clock_out')}
+                                        disabled={isSubmitting || pinCode.length < 4}
+                                        className="h-14 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        type="button"
+                                    >
+                                        <span className="material-symbols-outlined text-error text-[20px]">logout</span>
+                                        CLOCK OUT
+                                    </button>
+                                    <button
+                                        onClick={() => handleAction('break_start')}
+                                        disabled={isSubmitting || pinCode.length < 4}
+                                        className="h-14 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        type="button"
+                                    >
+                                        <span className="material-symbols-outlined text-secondary text-[20px]">coffee</span>
+                                        Istirahat
+                                    </button>
+                                </div>
+
+                                {isSubmitting && (
+                                    <div className="flex items-center justify-center gap-2 text-primary font-label-md text-label-md py-2">
+                                        <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+                                        Memverifikasi PIN &amp; menyimpan...
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* 2 Balanced Column Master Layout (Landscape Optimized) */}
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start">
-                            
-                            {/* KOLOM KIRI (Kamera Selfie, Validasi AI, & Tombol Aksi) */}
-                            <div className="lg:col-span-6 flex flex-col gap-space-md">
-                                {/* Viewfinder Card */}
-                                <div className="bg-surface-container-lowest rounded-lg p-space-md lg:p-space-lg shadow-[0_4px_20px_-2px_rgba(70,42,25,0.07)] relative overflow-hidden">
-                                    
-                                    {/* Viewfinder Header Chips */}
-                                    <div className="flex items-center justify-between gap-space-xs mb-space-sm">
-                                        <div className="flex items-center gap-1.5 px-3 py-1 bg-surface-container rounded-full">
-                                            <span className="w-2.5 h-2.5 rounded-full bg-tertiary animate-pulse"></span>
-                                            <span className="font-label-sm text-label-sm text-on-surface-variant font-bold uppercase tracking-wider">Kamera Depan HD Active</span>
-                                        </div>
-                                        <div className="font-label-md text-label-md text-on-surface font-bold tracking-tight">
-                                            {formatDate(currentTime)} • <span className="text-primary font-black font-mono">{formatTime(currentTime)}</span> WIB
-                                        </div>
+                        {/* KANAN: Log Kehadiran */}
+                        <div className="lg:col-span-7 flex flex-col gap-space-md">
+
+                            {/* Toast */}
+                            {statusToast.show && (
+                                <div className={`p-3.5 rounded-xl flex items-center gap-3 shadow-md ${statusToast.type === 'success' ? 'bg-tertiary-fixed text-on-tertiary-fixed' : 'bg-error-container text-on-error-container'}`}>
+                                    <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                                        {statusToast.type === 'success' ? 'check_circle' : 'error'}
+                                    </span>
+                                    <span className="font-label-md text-label-md font-bold">{statusToast.message}</span>
+                                </div>
+                            )}
+
+                            {/* Attendance Log */}
+                            <div className="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm flex flex-col">
+                                <div className="flex items-center justify-between pb-space-sm border-b border-surface-container-low mb-space-sm">
+                                    <div>
+                                        <h2 className="font-title-md text-title-md text-on-surface font-extrabold">Log Kehadiran Hari Ini</h2>
+                                        <p className="font-label-sm text-label-sm text-on-surface-variant">{branchName} • Update real-time</p>
                                     </div>
+                                    <button onClick={loadAttendances} className="w-8 h-8 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high flex items-center justify-center transition-colors" type="button" title="Refresh">
+                                        <span className="material-symbols-outlined text-[18px]">refresh</span>
+                                    </button>
+                                </div>
 
-                                    {/* Video Simulation Viewfinder Frame */}
-                                    <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden bg-inverse-surface/95 shadow-inner">
-                                        <img alt="preview" className="w-full h-full object-cover object-center filter saturate-[1.08] contrast-[1.02]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDNN59BR15PbcVp2eA4Cgi-C9GG4w8PJGFlvFcSAyTE5ygcdGLX562_A7XRJrPtRk_GIXX_7TKtGVZkHTi9D1VzrD14Y5YlRsOrlNkvLRNcS2BF9jNRVwY_nnI-VMDauf7-ChUXKmFhDNTnjfSO29GKW9lEyvVU5KRXO08Ow3iI75PGkcqQ-eOelDjBXfJz5T1P1CKDhl7Rj6KyX7EUVHil-YG5rz3zmgUdgSWHYYG0ARQZ4UZ06Lyx" />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-inverse-surface/85 via-transparent to-inverse-surface/40 pointer-events-none"></div>
-                                        
-                                        {/* Face Detection Overlay HUD Box */}
-                                        <div className="absolute inset-x-[20%] top-[12%] bottom-[22%] pointer-events-none flex flex-col items-center justify-between">
-                                            <div className="w-full flex justify-between items-start">
-                                                <div className="w-8 h-8 rounded-tl-xl bg-secondary-container shadow-md"></div>
-                                                <div className="w-8 h-8 rounded-tr-xl bg-secondary-container shadow-md"></div>
-                                            </div>
-                                            <div className="px-3.5 py-1.5 rounded-full bg-surface/95 backdrop-blur-md text-on-surface flex items-center gap-2 shadow-lg scale-95 transition-all">
-                                                <span className="material-symbols-outlined text-tertiary text-[18px]">face</span>
-                                                <span className="font-label-sm text-label-sm font-bold text-tertiary">Wajah Terdeteksi • Jernih (98%)</span>
-                                            </div>
-                                            <div className="w-full flex justify-between items-end">
-                                                <div className="w-8 h-8 rounded-bl-xl bg-secondary-container shadow-md"></div>
-                                                <div className="w-8 h-8 rounded-br-xl bg-secondary-container shadow-md"></div>
-                                            </div>
-                                        </div>
-
-                                        {/* Bottom HUD Watermark */}
-                                        <div className="absolute bottom-3 inset-x-3 flex items-end justify-between text-inverse-on-surface">
-                                            <div className="flex items-center gap-2 bg-inverse-surface/75 backdrop-blur-md px-3 py-1.5 rounded-full">
-                                                <span className="material-symbols-outlined text-tertiary-fixed text-[18px]">location_on</span>
-                                                <span className="font-label-sm text-label-sm text-inverse-on-surface font-semibold tracking-wide">
-                                                    GPS Valid: <strong className="text-tertiary-fixed font-bold">12m</strong> dari Titik Gerai
-                                                </span>
-                                            </div>
-                                            <button onClick={() => handleAction('retake')} className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-surface-container-lowest/90 hover:bg-surface-container-lowest text-on-surface font-label-sm text-label-sm font-bold shadow-md transition-all active:scale-95" type="button">
-                                                <span className="material-symbols-outlined text-[16px] text-primary">flip_camera_ios</span>
-                                                <span>Ambil Foto Ulang</span>
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Bottom Action Buttons */}
-                                    <div className="mt-space-md flex flex-col gap-space-xs">
-                                        {/* Primary Clock In */}
-                                        <button onClick={() => handleAction('clock_in')} className="h-16 w-full rounded-full bg-primary-container hover:bg-primary-container/90 text-on-primary font-title-lg text-title-lg flex items-center justify-between px-space-lg shadow-[0_8px_20px_-4px_rgba(217,142,63,0.5)] transition-all active:translate-y-0.5 active:shadow-[0_2px_6px_rgba(217,142,63,0.3)] group" type="button">
-                                            <div className="flex items-center gap-space-sm">
-                                                <div className="w-10 h-10 rounded-full bg-surface-container-lowest text-on-primary-container flex items-center justify-center shadow-sm">
-                                                    <span className="material-symbols-outlined text-[22px]">login</span>
+                                <div className="flex flex-col gap-2 max-h-[420px] overflow-y-auto">
+                                    {attendances.length > 0 ? attendances.map((att) => (
+                                        <div key={att.id} className="flex items-center justify-between p-3 rounded-xl bg-surface-container-low">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
+                                                    {att.user?.name?.substring(0, 2).toUpperCase() || 'KW'}
                                                 </div>
-                                                <div className="flex flex-col text-left">
-                                                    <span className="font-title-lg text-title-lg font-extrabold leading-none tracking-tight text-surface-container-lowest">CLOCK IN (Masuk Shift)</span>
-                                                    <span className="font-label-sm text-label-sm text-surface-container-lowest/90 font-medium mt-0.5">Otomatis simpan foto &amp; verifikasi posisi</span>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-title-sm text-title-sm text-on-surface font-bold">{att.user?.name || 'Karyawan'}</span>
+                                                        <span className={`font-label-sm text-label-sm font-bold px-2 py-0.5 rounded-full ${att.notes === 'clock_in' ? 'bg-tertiary-fixed text-on-tertiary-fixed' : att.notes === 'clock_out' ? 'bg-error-container text-on-error-container' : 'bg-secondary-fixed text-on-secondary-fixed'}`}>
+                                                            {att.notes === 'clock_in' ? 'MASUK' : att.notes === 'clock_out' ? 'PULANG' : att.notes?.replace('_', ' ').toUpperCase()}
+                                                        </span>
+                                                    </div>
+                                                    <span className="font-label-sm text-label-sm text-on-surface-variant">
+                                                        {new Date(att.created_at).toLocaleTimeString('id-ID', { hour12: false, hour: '2-digit', minute: '2-digit' })} WIB
+                                                        {att.shift && <span className="ml-2 text-primary capitalize">• {att.shift.shift_type}</span>}
+                                                    </span>
                                                 </div>
                                             </div>
-                                            <span className="material-symbols-outlined text-[28px] text-surface-container-lowest group-hover:translate-x-1 transition-transform">arrow_forward</span>
-                                        </button>
-                                        
-                                        {/* Dual Secondary */}
-                                        <div className="grid grid-cols-2 gap-space-xs">
-                                            <button onClick={() => handleAction('clock_out')} className="h-14 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface font-title-md text-title-md flex items-center justify-center gap-2 shadow-sm transition-all active:translate-y-0.5 active:scale-[0.99]" type="button">
-                                                <span className="material-symbols-outlined text-primary text-[20px]">logout</span>
-                                                <span className="font-bold">CLOCK OUT (Pulang)</span>
-                                            </button>
-                                            <button onClick={() => handleAction('break_start')} className="h-14 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface font-title-md text-title-md flex items-center justify-center gap-2 shadow-sm transition-all active:translate-y-0.5 active:scale-[0.99]" type="button">
-                                                <span className="material-symbols-outlined text-secondary text-[20px]">coffee</span>
-                                                <span className="font-bold">Mulai Istirahat</span>
-                                            </button>
+                                            <span className="material-symbols-outlined text-tertiary text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
                                         </div>
-                                    </div>
+                                    )) : (
+                                        <div className="py-10 text-center text-on-surface-variant">
+                                            <span className="material-symbols-outlined text-[48px] mb-2 block opacity-40">event_note</span>
+                                            <p className="font-body-md text-body-md">Belum ada data kehadiran hari ini.</p>
+                                            <p className="font-label-sm text-label-sm">Karyawan bisa Clock In menggunakan PIN masing-masing.</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
-                            {/* KOLOM KANAN */}
-                            <div className="lg:col-span-6 flex flex-col gap-space-md">
-                                {/* Card 1: Karyawan Selector + Quick PIN */}
-                                <div className="bg-surface-container-lowest rounded-lg p-space-md lg:p-space-lg shadow-[0_4px_20px_-2px_rgba(70,42,25,0.07)]">
-                                    <div className="flex items-center justify-between mb-space-sm">
-                                        <span className="font-label-sm text-label-sm uppercase font-bold text-on-surface-variant tracking-wider">1. Pilih Karyawan Aktif</span>
-                                        <span className="font-label-sm text-label-sm text-primary font-bold">Wajib 4-Digit PIN</span>
+                            {/* Shift Info Card */}
+                            <div className="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center">
+                                        <span className="material-symbols-outlined text-[22px]">schedule</span>
                                     </div>
-                                    
-                                    {/* Quick Crew Switcher */}
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-space-md">
-                                        {crewList.map(crew => {
-                                            const isActive = selectedCrew === crew.id;
-                                            return (
-                                                <button 
-                                                    key={crew.id}
-                                                    onClick={() => selectCrew(crew.id)}
-                                                    className={`p-2 rounded-lg flex flex-col items-center text-center transition-all shadow-sm ${isActive ? 'bg-surface-container ring-2 ring-primary-container' : 'bg-surface-container-low hover:bg-surface-container'}`} 
-                                                    type="button"
-                                                >
-                                                    <div className="relative w-11 h-11 rounded-full overflow-hidden mb-1.5 bg-surface-container-high">
-                                                        <img className="w-full h-full object-cover" src={crew.img} alt={crew.name} />
-                                                    </div>
-                                                    <span className="font-label-md text-label-md text-on-surface font-bold leading-tight">{crew.name}</span>
-                                                    <span className="font-label-sm text-label-sm text-on-surface-variant leading-tight">{crew.role}</span>
-                                                </button>
-                                            );
-                                        })}
+                                    <div>
+                                        <p className="font-label-md text-label-md font-bold text-on-surface">
+                                            {activeShift ? `Shift Aktif: ${activeShift.shift_type}` : 'Belum Ada Shift Aktif'}
+                                        </p>
+                                        <p className="font-label-sm text-label-sm text-on-surface-variant">
+                                            {activeShift
+                                                ? `Dibuka: ${new Date(activeShift.opened_at || activeShift.created_at).toLocaleTimeString('id-ID', { hour12: false })} WIB`
+                                                : 'Buka shift terlebih dahulu di menu "Buka Shift"'}
+                                        </p>
                                     </div>
-
-                                    {/* PIN Display */}
-                                    <div className="bg-surface-container-low rounded-lg p-3 flex flex-col items-center justify-center mb-space-sm shadow-inner">
-                                        <span className="font-label-sm text-label-sm text-on-surface-variant mb-2">2. Masukkan Kode PIN Rahasia</span>
-                                        <div className="flex items-center gap-3">
-                                            {[0, 1, 2, 3].map(idx => (
-                                                <div key={idx} className={`w-4 h-4 rounded-full transition-all duration-150 ${idx < pinCode.length ? 'bg-primary-container scale-125 shadow-sm' : 'bg-surface-container-highest'}`}></div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Keypad */}
-                                    <div className="grid grid-cols-3 gap-2 sm:gap-2.5 max-w-sm mx-auto">
-                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                                            <button key={num} onClick={() => handlePinPress(num.toString())} className="h-14 rounded-base bg-surface-container-low hover:bg-surface-container font-num-keypad text-num-keypad text-on-surface font-bold shadow-sm active:translate-y-1 transition-all" type="button">{num}</button>
-                                        ))}
-                                        <button onClick={handleClearPin} className="h-14 rounded-base bg-error-container hover:bg-error-container/80 text-error font-title-lg text-title-lg font-bold shadow-sm active:translate-y-1 transition-all flex items-center justify-center" type="button">
-                                            <span className="material-symbols-outlined text-[24px]">backspace</span>
-                                        </button>
-                                        <button onClick={() => handlePinPress('0')} className="h-14 rounded-base bg-surface-container-low hover:bg-surface-container font-num-keypad text-num-keypad text-on-surface font-bold shadow-sm active:translate-y-1 transition-all" type="button">0</button>
-                                        <button className="h-14 rounded-base bg-secondary-container hover:bg-secondary-fixed text-on-secondary-container font-title-lg text-title-lg font-bold shadow-sm active:translate-y-1 transition-all flex items-center justify-center" type="button">
-                                            <span className="material-symbols-outlined text-[26px]">check_circle</span>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Card 2: Live Shift Attendance Log */}
-                                <div className="bg-surface-container-lowest rounded-lg p-space-md lg:p-space-lg shadow-[0_4px_20px_-2px_rgba(70,42,25,0.07)]">
-                                    <div className="flex items-center justify-between gap-space-xs pb-space-sm border-b border-surface-container-low mb-space-sm">
-                                        <div>
-                                            <h2 className="font-title-md text-title-md text-on-surface font-extrabold">Kehadiran Shift Sore-Malam</h2>
-                                            <p className="font-label-sm text-label-sm text-on-surface-variant">Update terkoneksi real-time KOT server</p>
-                                        </div>
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="px-2.5 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm font-bold">2 Hadir</span>
-                                            <span className="px-2.5 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm font-bold">1 Menunggu</span>
-                                            <span className="px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm font-bold">0 Absen</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Attendance Roster Items */}
-                                    <div className="flex flex-col gap-2">
-                                        {attendances.length > 0 ? attendances.map((att) => (
-                                            <div key={att.id} className="flex items-center justify-between p-2.5 rounded-lg bg-surface-container-low">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-9 h-9 rounded-full overflow-hidden bg-surface-container-high shrink-0">
-                                                        <img className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBYIMiam64ARx5var1mH680o8kmG2tuHZ4_DMS5xQgtEQl5bpQ-N7BPWG1ZdhWiJetzTWvLpuBIMAKs6tYubrQ66KHDPpN83JrWNoh9yZoubeGi2GQy7gaioMHsOXsIQpWnEnTW01JCoFXLdzowbUW8z_giWsQ7crBGTstT7Rpx7JwdIFPwzXNeksWs41SLtKq4IsNZD6YzPeKKG5CUUQdvPJr-_-5G9hB_HOlJnWokW0QriD5h5wpg" alt="" />
-                                                    </div>
-                                                    <div>
-                                                        <div className="flex items-center gap-1.5">
-                                                            <span className="font-title-md text-title-md text-on-surface font-bold leading-none">{att.user?.name || 'Karyawan'}</span>
-                                                            <span className="font-label-sm text-label-sm text-tertiary font-bold bg-tertiary-fixed/60 px-1.5 py-0.2 rounded-full">{att.notes}</span>
-                                                        </div>
-                                                        <span className="font-label-sm text-label-sm text-on-surface-variant mt-0.5 inline-block">Jam: <strong>{new Date(att.created_at).toLocaleTimeString('id-ID', { hour12: false })} WIB</strong></span>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-1.5 text-right">
-                                                    <span className="material-symbols-outlined text-tertiary text-[18px]">verified</span>
-                                                    <span className="font-label-sm text-label-sm font-bold text-tertiary">Foto &amp; GPS OK</span>
-                                                </div>
-                                            </div>
-                                        )) : (
-                                            <div className="p-4 text-center text-on-surface-variant">Belum ada data kehadiran hari ini.</div>
-                                        )}
-                                    </div>
-
-                                    {/* Toast Status */}
-                                    {statusToast.show && (
-                                        <div className="mt-space-sm p-2.5 rounded-lg bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-between text-left animate-in fade-in duration-300">
-                                            <div className="flex items-center gap-2">
-                                                <span className="material-symbols-outlined text-[20px] text-tertiary">check_circle</span>
-                                                <span className="font-label-md text-label-md font-bold">{statusToast.message}</span>
-                                            </div>
-                                            <span className="font-label-sm text-label-sm text-on-tertiary-fixed-variant">Sinkron KOT • 0ms</span>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         </div>

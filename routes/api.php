@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\ProductController;
 use App\Http\Controllers\API\TransactionController;
 use App\Http\Controllers\API\DashboardController;
+use App\Http\Controllers\API\PinController;
 
 /*
 |--------------------------------------------------------------------------
@@ -28,6 +29,30 @@ Route::post('/transactions', [TransactionController::class, 'store']);
 Route::get('/transactions/pending', [TransactionController::class, 'pending']);
 Route::get('/kitchen/recipes', [\App\Http\Controllers\API\KitchenController::class, 'recipes']);
 Route::get('/kitchen/inventory', [\App\Http\Controllers\API\KitchenController::class, 'inventory']);
+
+// PIN Endpoints (used by POS Login & Attendance)
+Route::post('/verify-pin', [PinController::class, 'verify']);
+Route::post('/admin/employees/{id}/reset-pin', [PinController::class, 'resetPin']);
+Route::delete('/admin/employees/{id}/clear-pin', [PinController::class, 'clearPin']);
+
+// Branch Info Endpoint (used by POS header & pages)
+Route::get('/branches/current', function (Request $request) {
+    $branchId = $request->query('branch_id', 1);
+    $branch = \App\Models\Branch::with('posSettings')->find($branchId);
+    if (!$branch) {
+        return response()->json(['status' => 'error', 'message' => 'Branch not found'], 404);
+    }
+    return response()->json([
+        'status' => 'success',
+        'data'   => [
+            'id'      => $branch->id,
+            'name'    => $branch->name,
+            'code'    => $branch->code,
+            'address' => $branch->address,
+            'phone'   => $branch->phone,
+        ],
+    ]);
+});
 
 // Admin Dashboard Endpoints
 Route::get('/admin/dashboard', [DashboardController::class, 'getStats']);

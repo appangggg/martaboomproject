@@ -13,9 +13,15 @@ export default function KitchenProductionScreen() {
     const [recipes, setRecipes] = useState({});
     const [isLoadingRecipes, setIsLoadingRecipes] = useState(true);
 
+    // Load cashier & branch from localStorage
+    const getCashier = () => { try { return JSON.parse(localStorage.getItem('pos_cashier') || '{}'); } catch (_) { return {}; } };
+    const getBranch  = () => { try { return JSON.parse(localStorage.getItem('pos_branch')  || '{}'); } catch (_) { return {}; } };
+
     const loadHistory = async () => {
         try {
-            const response = await window.apiClient.get('/production-logs?branch_id=1');
+            const branch = getBranch();
+            const branchId = branch?.id || 1;
+            const response = await window.apiClient.get(`/production-logs?branch_id=${branchId}`);
             if (response.status === 'success') {
                 setHistory(response.data);
             }
@@ -60,14 +66,16 @@ export default function KitchenProductionScreen() {
     const confirmBatchProduction = async () => {
         setIsProcessing(true);
         try {
+            const branch  = getBranch();
+            const cashier = getCashier();
             const response = await window.apiClient.post('/production-logs', {
-                branch_id: 1, // Default branch
-                recipe_id: 1, // Simulate recipe ID based on selected recipe
-                user_id: 1, // Default user
+                branch_id:      branch?.id    || 1,
+                recipe_id:      recipe?.id    || 1,
+                user_id:        cashier?.id   || 1,
                 batch_quantity: currentBatch,
-                actual_yield: currentBatch * 22,
-                expected_yield: currentBatch * 24,
-                notes: `Produced ${recipe.title}`
+                actual_yield:   currentBatch * (recipe.actualYieldPerBatch || 22),
+                expected_yield: currentBatch * (recipe.yieldPerBatch       || 24),
+                notes: `Diproduksi: ${recipe.title} (${currentBatch} batch)`,
             });
 
             if (response.status === 'success') {
@@ -78,7 +86,7 @@ export default function KitchenProductionScreen() {
                 alert(response.message);
             }
         } catch (error) {
-            alert('Gagal mencatat produksi: ' + (error.response?.data?.message || 'Error jaringan.'));
+            alert('Gagal mencatat produksi: ' + (error?.data?.message || 'Error jaringan.'));
         } finally {
             setIsProcessing(false);
         }

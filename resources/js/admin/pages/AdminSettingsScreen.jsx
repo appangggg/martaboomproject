@@ -10,6 +10,11 @@ export default function AdminSettingsScreen() {
 
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [pinTarget, setPinTarget] = useState(null); // { real_id, name }
+  const [newPin, setNewPin] = useState('');
+  const [pinSaving, setPinSaving] = useState(false);
+  const [pinError, setPinError] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
 
@@ -100,15 +105,21 @@ export default function AdminSettingsScreen() {
   const handleProductSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    const data = Object.fromEntries(formData);
+    
     // basic mapping for boolean/numeric
-    data.is_active = data.is_active === 'on' || data.is_active === '1' || data.is_active === 'true' || data.is_active === true;
+    const isActive = formData.get('is_active');
+    formData.set('is_active', isActive === 'on' || isActive === '1' || isActive === 'true' ? 1 : 0);
     
     try {
       if (selectedProduct) {
-        await axios.put(`/api/admin/products/${selectedProduct.real_id}`, data);
+        formData.append('_method', 'PUT');
+        await axios.post(`/api/admin/products/${selectedProduct.real_id}`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
       } else {
-        await axios.post('/api/admin/products', data);
+        await axios.post('/api/admin/products', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
       }
       setIsProductModalOpen(false);
       fetchData();
@@ -137,8 +148,43 @@ export default function AdminSettingsScreen() {
     }
   };
 
-  const resetPin = (name) => {
-    alert(`Reset PIN untuk ${name} berhasil. Cek email / WA untuk PIN baru.`);
+  const openPinModal = (staff) => {
+    setPinTarget(staff);
+    setNewPin('');
+    setPinError('');
+    setIsPinModalOpen(true);
+  };
+
+  const handlePinSave = async () => {
+    if (!/^\d{6}$/.test(newPin)) {
+      setPinError('PIN harus tepat 6 angka.');
+      return;
+    }
+    setPinSaving(true);
+    try {
+      const res = await axios.post(`/api/admin/employees/${pinTarget.real_id}/reset-pin`, { pin: newPin });
+      if (res.data.status === 'success') {
+        setIsPinModalOpen(false);
+        fetchData(); // refresh staff list to update pin status badge
+        alert(`PIN berhasil diset untuk ${pinTarget.name}.`);
+      } else {
+        setPinError(res.data.message || 'Gagal menyimpan PIN.');
+      }
+    } catch (err) {
+      setPinError(err.response?.data?.message || 'Terjadi kesalahan. Coba lagi.');
+    } finally {
+      setPinSaving(false);
+    }
+  };
+
+  const handleClearPin = async (staff) => {
+    if (!confirm(`Hapus PIN untuk ${staff.name}? Mereka tidak bisa login sampai PIN baru dibuat.`)) return;
+    try {
+      await axios.delete(`/api/admin/employees/${staff.real_id}/clear-pin`);
+      fetchData();
+    } catch (_) {
+      alert('Gagal menghapus PIN.');
+    }
   };
 
   return (
@@ -175,23 +221,10 @@ export default function AdminSettingsScreen() {
           <span>Menu & Harga</span>
           <span className={`px-1.5 py-0.5 rounded-full ${activeTab === 'menu-harga' ? 'bg-surface-container-lowest/20' : 'bg-surface-container'} font-label-sm text-[10px]`}>{menuItems.length} SKU</span>
         </button>
-        <button onClick={() => setActiveTab('modifier-topping')} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-label-md text-label-md transition-all shrink-0 ${activeTab === 'modifier-topping' ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container shadow-sm'}`}>
-          <span className="material-symbols-outlined text-[18px]">auto_fix_high</span>
-          <span>Modifier & Topping</span>
-          <span className={`px-1.5 py-0.5 rounded-full ${activeTab === 'modifier-topping' ? 'bg-surface-container-lowest/20' : 'bg-surface-container'} font-label-sm text-[10px]`}>18 Item</span>
-        </button>
-        <button onClick={() => setActiveTab('printer-struk')} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-label-md text-label-md transition-all shrink-0 ${activeTab === 'printer-struk' ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container shadow-sm'}`}>
-          <span className="material-symbols-outlined text-[18px]">print</span>
-          <span>Printer & Struk</span>
-        </button>
         <button onClick={() => setActiveTab('pengguna-pin')} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-label-md text-label-md transition-all shrink-0 ${activeTab === 'pengguna-pin' ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container shadow-sm'}`}>
           <span className="material-symbols-outlined text-[18px]">badge</span>
           <span>Pengguna & PIN Kasir</span>
           <span className="px-1.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-[10px]">{staffList.length} Staf</span>
-        </button>
-        <button onClick={() => setActiveTab('integrasi-kasir')} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-label-md text-label-md transition-all shrink-0 ${activeTab === 'integrasi-kasir' ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container shadow-sm'}`}>
-          <span className="material-symbols-outlined text-[18px]">hub</span>
-          <span>Integrasi Kasir</span>
         </button>
       </div>
 
@@ -277,310 +310,7 @@ export default function AdminSettingsScreen() {
         </div>
       )}
 
-      {activeTab === 'modifier-topping' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-lg">
-          <div className="lg:col-span-7 flex flex-col gap-space-lg">
-            <div className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-[20px]">layers</span>
-                  <h3 className="font-headline-sm text-headline-sm text-on-surface">Pilihan Base Adonan Martabak</h3>
-                </div>
-                <button className="px-2.5 py-1 rounded bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">add</span> Base Baru
-                </button>
-              </div>
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between p-3 rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-tertiary/20 flex items-center justify-center text-tertiary">
-                      <span className="material-symbols-outlined text-[18px]">eco</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-label-md text-label-md text-on-surface font-semibold">Base Original Pandan Wangi</span>
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">Default standar adonan terang bulan</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-label-md text-label-md text-on-surface-variant font-medium">+Rp 0 (Standar)</span>
-                    <span className="material-symbols-outlined text-[20px] text-tertiary">check_circle</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-error/20 flex items-center justify-center text-error">
-                      <span className="material-symbols-outlined text-[18px]">palette</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-label-md text-label-md text-on-surface font-semibold">Base Red Velvet Creamy</span>
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">Adonan bit merah organik & kakao premium</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-label-md text-label-md text-primary font-bold">+Rp 5.000</span>
-                    <span className="material-symbols-outlined text-[20px] text-tertiary">toggle_on</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-on-surface/10 flex items-center justify-center text-on-surface">
-                      <span className="material-symbols-outlined text-[18px]">cookie</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-label-md text-label-md text-on-surface font-semibold">Base Black Forest Kakao Belanda</span>
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">Bubuk dark chocolate Van Houten 100%</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-label-md text-label-md text-primary font-bold">+Rp 6.000</span>
-                    <span className="material-symbols-outlined text-[20px] text-tertiary">toggle_on</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-[20px]">icecream</span>
-                  <h3 className="font-headline-sm text-headline-sm text-on-surface">Pilihan Topping & Tambahan Add-ons</h3>
-                </div>
-                <span className="font-label-sm text-label-sm text-on-surface-variant">Auto-deduct stok pada POS</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div className="p-3 rounded-lg bg-surface-container-low flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="font-label-md text-label-md text-on-surface font-semibold">Keju Kraft Parut</span>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant">Porsi 75 gr (+BOM Rp 3.800)</span>
-                  </div>
-                  <span className="font-label-md text-label-md text-primary font-bold">+Rp 8.000</span>
-                </div>
-                <div className="p-3 rounded-lg bg-surface-container-low flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="font-label-md text-label-md text-on-surface font-semibold">Cokelat Meises Ceres</span>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant">Porsi 60 gr (+BOM Rp 2.200)</span>
-                  </div>
-                  <span className="font-label-md text-label-md text-primary font-bold">+Rp 6.000</span>
-                </div>
-                <div className="p-3 rounded-lg bg-surface-container-low flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="font-label-md text-label-md text-on-surface font-semibold">Cream Cheese Anchor</span>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant">Porsi 50 gr (+BOM Rp 5.500)</span>
-                  </div>
-                  <span className="font-label-md text-label-md text-primary font-bold">+Rp 12.000</span>
-                </div>
-                <div className="p-3 rounded-lg bg-surface-container-low flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="font-label-md text-label-md text-on-surface font-semibold">KitKat Green Tea Remah</span>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant">2 Bar kitkat crush (+BOM Rp 6.800)</span>
-                  </div>
-                  <span className="font-label-md text-label-md text-primary font-bold">+Rp 14.000</span>
-                </div>
-              </div>
-            </div>
 
-            <div className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-sm">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-[20px]">sticky_note_2</span>
-                <h3 className="font-headline-sm text-headline-sm text-on-surface">Catatan Cepat Kasir (One-Tap Instructions)</h3>
-              </div>
-              <p className="font-body-md text-body-md text-on-surface-variant">Preset tombol instan layar kasir POS agar staf tidak perlu mengetik instruksi pesanan kustom manual.</p>
-              <div className="flex flex-wrap gap-2 pt-2">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md">
-                  <span className="material-symbols-outlined text-[16px] text-tertiary">check</span> "Adonan Tipis Kering"
-                  <button className="text-on-surface-variant hover:text-error ml-1"><span className="material-symbols-outlined text-[14px]">close</span></button>
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md">
-                  <span className="material-symbols-outlined text-[16px] text-tertiary">check</span> "Gula Sedikit (Less Sugar)"
-                  <button className="text-on-surface-variant hover:text-error ml-1"><span className="material-symbols-outlined text-[14px]">close</span></button>
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md">
-                  <span className="material-symbols-outlined text-[16px] text-tertiary">check</span> "Potong 12 Kotak"
-                  <button className="text-on-surface-variant hover:text-error ml-1"><span className="material-symbols-outlined text-[14px]">close</span></button>
-                </span>
-                <button className="px-3 py-1.5 rounded-lg bg-primary-fixed text-on-primary-fixed font-label-md text-label-md hover:bg-secondary-fixed transition-colors flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[16px]">add</span> Tambah Preset
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:col-span-5 flex flex-col gap-space-md">
-            <div className="sticky top-20 bg-surface-container p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md">
-              <div className="flex items-center justify-between border-b-0 pb-1">
-                <span className="font-label-md text-label-md text-on-surface font-semibold flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[18px] text-primary">touch_app</span>
-                  Simulasi Tampilan Layar Kasir POS
-                </span>
-                <span className="px-2 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed-variant font-label-sm text-label-sm font-semibold">Live Preview</span>
-              </div>
-              
-              <div className="bg-surface-container-lowest p-4 rounded-lg shadow-sm flex flex-col gap-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h5 className="font-headline-sm text-headline-sm text-on-surface">Terang Bulan Spesial Mix</h5>
-                    <span className="font-body-md text-body-md text-on-surface-variant">Pilih varian modifikasi adonan & topping</span>
-                  </div>
-                  <span className="font-headline-sm text-headline-sm text-primary font-bold">Rp 45.000</span>
-                </div>
-                
-                <div className="flex flex-col gap-2 pt-2">
-                  <label className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Base Dipilih:</label>
-                  <div className="grid grid-cols-3 gap-1.5 text-center">
-                    <div className="p-2 rounded bg-surface-container-high text-on-surface font-label-sm text-label-sm cursor-pointer hover:opacity-90">Pandan (+0)</div>
-                    <div className="p-2 rounded bg-primary text-on-primary font-label-sm text-label-sm font-semibold cursor-pointer shadow-sm">Red Velvet (+5k)</div>
-                    <div className="p-2 rounded bg-surface-container-high text-on-surface font-label-sm text-label-sm cursor-pointer hover:opacity-90">Black Forest (+6k)</div>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col gap-2">
-                  <label className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Topping Tambahan Aktif:</label>
-                  <div className="flex flex-wrap gap-1.5">
-                    <span className="px-2 py-1 rounded bg-secondary-container text-on-secondary-container font-label-sm text-label-sm flex items-center gap-1">
-                      + Cream Cheese Anchor (+12k) <span className="material-symbols-outlined text-[12px]">check</span>
-                    </span>
-                    <span className="px-2 py-1 rounded bg-secondary-container text-on-secondary-container font-label-sm text-label-sm flex items-center gap-1">
-                      + Keju Kraft (+8k) <span className="material-symbols-outlined text-[12px]">check</span>
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Instruksi Koki:</label>
-                  <div className="p-2.5 rounded bg-surface-container-low font-body-md text-body-md text-on-surface italic">
-                    "Adonan Tipis Kering, Gula Sedikit (Less Sugar)"
-                  </div>
-                </div>
-                
-                <div className="pt-3 border-t-0 flex items-center justify-between border-surface-variant">
-                  <div className="flex flex-col">
-                    <span className="font-label-sm text-label-sm text-on-surface-variant">Subtotal Tagihan POS</span>
-                    <span className="font-headline-kpi text-headline-kpi text-on-surface leading-tight font-bold">Rp 70.000</span>
-                  </div>
-                  <button className="px-4 py-2 rounded-lg bg-tertiary text-on-tertiary font-label-md text-label-md flex items-center gap-1.5 shadow-sm">
-                    <span className="material-symbols-outlined text-[18px]">add_shopping_cart</span> Masuk Keranjang
-                  </button>
-                </div>
-              </div>
-              
-              <div className="p-3 rounded-lg bg-surface-container-high/60 flex items-start gap-2 text-on-surface-variant font-label-sm text-label-sm">
-                <span className="material-symbols-outlined text-primary text-[18px] shrink-0">info</span>
-                <span>Perubahan modifikasi harga akan langsung terdorong ke 4 mesin POS cabang setelah tombol Simpan Perubahan ditekan.</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'printer-struk' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-lg">
-          <div className="lg:col-span-7 flex flex-col gap-space-lg">
-            <div className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-[20px]">receipt</span>
-                <h3 className="font-headline-sm text-headline-sm text-on-surface">Format Kertas Thermal Kasir</h3>
-              </div>
-              <p className="font-body-md text-body-md text-on-surface-variant">Pilih lebar kertas default sesuai printer Bluetooth/Ethernet yang terpasang di masing-masing kasir cabang.</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md pt-2">
-                <label className={`relative flex items-start gap-3 p-3.5 rounded-xl cursor-pointer transition-all ${paperSize === '58mm' ? 'bg-surface-container border-2 border-primary/40 shadow-sm' : 'bg-surface-container-low hover:bg-surface-container'}`}>
-                  <input type="radio" name="paper_size" value="58mm" checked={paperSize === '58mm'} onChange={() => setPaperSize('58mm')} className="mt-1 text-primary focus:ring-0" />
-                  <div className="flex flex-col">
-                    <span className="font-headline-sm text-headline-sm text-on-surface font-bold">58mm Thermal</span>
-                    <span className="font-body-md text-body-md text-on-surface-variant mt-1">Standar printer portabel kasir mobile (32 karakter/baris).</span>
-                  </div>
-                </label>
-                <label className={`relative flex items-start gap-3 p-3.5 rounded-xl cursor-pointer transition-all ${paperSize === '80mm' ? 'bg-surface-container border-2 border-primary/40 shadow-sm' : 'bg-surface-container-low hover:bg-surface-container'}`}>
-                  <input type="radio" name="paper_size" value="80mm" checked={paperSize === '80mm'} onChange={() => setPaperSize('80mm')} className="mt-1 text-primary focus:ring-0" />
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-2">
-                      <span className="font-headline-sm text-headline-sm text-on-surface font-bold">80mm Thermal</span>
-                      <span className="px-1.5 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed-variant font-label-sm text-[10px] font-bold">REKOMENDASI</span>
-                    </div>
-                    <span className="font-body-md text-body-md text-on-surface-variant mt-1">Standar industri Epson TM-T82 (48 karakter/baris), cetak lebih rapi.</span>
-                  </div>
-                </label>
-              </div>
-            </div>
-            
-            <div className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-[20px]">edit_note</span>
-                <h3 className="font-headline-sm text-headline-sm text-on-surface">Redaksi Teks Header & Footer Struk</h3>
-              </div>
-              <div className="flex flex-col gap-space-sm">
-                <label className="font-label-sm text-label-sm text-on-surface-variant font-semibold">Teks Judul Header Struk (Tengah)</label>
-                <input type="text" defaultValue="MARTABOOM - MARTABAK & TERANG BULAN SPESIAL" className="px-3.5 py-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:bg-surface-container focus:text-on-surface border border-transparent focus:border-outline-variant" />
-                <span className="font-label-sm text-label-sm text-on-surface-variant/80">Alamat cabang dan nomor invoice otomatis digenerate per transaksi.</span>
-              </div>
-              <div className="flex flex-col gap-space-sm pt-2">
-                <label className="font-label-sm text-label-sm text-on-surface-variant font-semibold">Pesan Penutup Footer Struk</label>
-                <textarea rows="3" defaultValue="Terima kasih telah menikmati cita rasa legit Martaboom! Follow IG @martaboom.id. Komplain & Kritik WA: 0812-3456-7890." className="p-3 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:bg-surface-container focus:text-on-surface border border-transparent focus:border-outline-variant"></textarea>
-              </div>
-            </div>
-          </div>
-          
-          <div className="lg:col-span-5 flex flex-col items-center">
-            <div className={`w-full max-w-[${paperSize === '80mm' ? '340px' : '280px'}] bg-surface-container-lowest p-6 rounded-lg shadow-lg flex flex-col font-mono text-[12px] leading-relaxed text-on-surface relative`}>
-              <div className="text-center font-bold text-[14px] uppercase mb-1 tracking-wider">
-                MARTABOOM - MARTABAK & TERANG BULAN SPESIAL
-              </div>
-              <div className="text-center text-[10px] text-on-surface-variant pb-2 border-b-2 border-dashed border-outline-variant">
-                Cabang Dipatiukur - Bandung<br/>
-                Telp: (022) 8940-1122 | Kasir: Budi Utomo
-              </div>
-              <div className="flex justify-between text-[11px] py-2 border-b border-dashed border-outline-variant">
-                <span>26/10/2024 21:14</span>
-                <span>TRX#MB-98241</span>
-              </div>
-              
-              <div className="flex flex-col gap-2 py-3 border-b-2 border-dashed border-outline-variant">
-                <div className="flex flex-col">
-                  <div className="flex justify-between font-bold">
-                    <span>1x TB Black Forest C.Cheese</span>
-                    <span>68.000</span>
-                  </div>
-                  <span className="text-[10px] text-on-surface-variant pl-3">* Base Black Forest Kakao</span>
-                  <span className="text-[10px] text-on-surface-variant pl-3">* Top: KitKat Green Tea (+14.000)</span>
-                </div>
-                <div className="flex flex-col">
-                  <div className="flex justify-between font-bold">
-                    <span>1x Martabak Telur Bebek</span>
-                    <span>62.000</span>
-                  </div>
-                  <span className="text-[10px] text-on-surface-variant pl-3">* Note: Kuah cuka dipisah</span>
-                </div>
-              </div>
-              
-              <div className="flex flex-col gap-1 py-2 text-[11px]">
-                <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span>144.000</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>PB1 Resto (10%):</span>
-                  <span>14.400</span>
-                </div>
-                <div className="flex justify-between font-bold text-[13px] pt-1">
-                  <span>TOTAL BAYAR:</span>
-                  <span>Rp 158.400</span>
-                </div>
-                <div className="flex justify-between text-[10px] text-on-surface-variant">
-                  <span>Metode: QRIS BCA Dinamis</span>
-                  <span>LUNAS</span>
-                </div>
-              </div>
-              
-              <div className="text-center text-[10px] text-on-surface-variant pt-2 border-t border-dashed border-outline-variant mt-2">
-                Terima kasih telah menikmati cita rasa legit Martaboom! Follow IG @martaboom.id. Komplain & Kritik WA: 0812-3456-7890.
-              </div>
-            </div>
-            
-            <button className="mt-4 px-4 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors shadow-sm">
-              <span className="material-symbols-outlined text-[18px]">print</span> Uji Cetak Struk Contoh
-            </button>
-          </div>
-        </div>
-      )}
 
       {activeTab === 'pengguna-pin' && (
         <div className="flex flex-col gap-space-lg">
@@ -643,8 +373,9 @@ export default function AdminSettingsScreen() {
                       </td>
                       <td className="py-3.5 px-space-md text-right">
                         <div className="flex justify-end gap-2">
-                          <button onClick={() => resetPin(staff.name)} className={`px-2 py-1.5 rounded-lg ${staff.isExpired ? 'bg-error-container text-on-error-container' : 'bg-surface-container hover:bg-surface-container-high text-on-surface'} font-label-md text-label-md inline-flex items-center gap-1 transition-colors`} title="Reset PIN">
+                          <button onClick={() => openPinModal(staff)} className={`px-2 py-1.5 rounded-lg ${staff.isExpired ? 'bg-error-container text-on-error-container' : 'bg-surface-container hover:bg-surface-container-high text-on-surface'} font-label-md text-label-md inline-flex items-center gap-1 transition-colors`} title="Set PIN Baru">
                             <span className={`material-symbols-outlined text-[16px] ${staff.isExpired ? '' : 'text-primary'}`}>{staff.isExpired ? 'sync_lock' : 'key'}</span>
+                            <span className="text-xs">{staff.isExpired ? 'Set PIN' : 'Ubah PIN'}</span>
                           </button>
                           <button onClick={() => { setSelectedEmployee(staff); setIsEmployeeModalOpen(true); }} className="px-2 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md inline-flex items-center gap-1 transition-colors" title="Edit Staf">
                             <span className="material-symbols-outlined text-[16px]">edit</span>
@@ -663,36 +394,6 @@ export default function AdminSettingsScreen() {
         </div>
       )}
 
-      {activeTab === 'integrasi-kasir' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-space-lg">
-          <div className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col justify-between gap-space-md">
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className="font-headline-sm text-headline-sm text-on-surface">Pawoon POS Bridge API</span>
-                <span className="px-2 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed-variant font-label-sm text-label-sm font-bold">TERHUBUNG</span>
-              </div>
-              <p className="font-body-md text-body-md text-on-surface-variant">Sinkronisasi mutasi transaksi tunai, void penjualan, dan laporan closing harian secara live per gerai.</p>
-            </div>
-            <div className="flex items-center justify-between pt-2 border-t-0">
-              <span className="font-label-sm text-label-sm text-on-surface-variant">Koneksi ID: PWN-MB-90218</span>
-              <button className="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md">Kelola Token</button>
-            </div>
-          </div>
-          <div className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col justify-between gap-space-md">
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className="font-headline-sm text-headline-sm text-on-surface">Moka POS Direct Sync</span>
-                <span className="px-2 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed-variant font-label-sm text-label-sm font-bold">STANDBY</span>
-              </div>
-              <p className="font-body-md text-body-md text-on-surface-variant">Koneksi cadangan jika tablet POS utama offline, data order disalurkan via batch sync lokal.</p>
-            </div>
-            <div className="flex items-center justify-between pt-2 border-t-0">
-              <span className="font-label-sm text-label-sm text-on-surface-variant">Status: Siaga Operasional</span>
-              <button className="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md">Konfigurasi</button>
-            </div>
-          </div>
-        </div>
-      )}
     {/* Modals */}
       {isProductModalOpen && (
         <div className="fixed inset-0 z-50 bg-on-surface/40 backdrop-blur-sm flex items-center justify-center p-space-md">
@@ -734,6 +435,15 @@ export default function AdminSettingsScreen() {
                 <div className="flex flex-col gap-1">
                   <label className="font-label-sm text-label-sm text-on-surface-variant">Deskripsi (Opsional)</label>
                   <textarea name="description" defaultValue={selectedProduct?.desc !== 'Tidak ada deskripsi' ? selectedProduct?.desc : ''} className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" rows="3"></textarea>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-sm text-label-sm text-on-surface-variant">Gambar Produk (Opsional)</label>
+                  <input type="file" name="image_url" accept="image/*" className="w-full p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" />
+                  {selectedProduct && selectedProduct.image_url && (
+                    <div className="mt-2 text-sm text-on-surface-variant">
+                      Gambar saat ini sudah ada. Upload gambar baru untuk mengganti.
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 mt-2">
                   <input type="checkbox" name="is_active" id="is_active" defaultChecked={selectedProduct ? selectedProduct.is_active : true} value="1" className="w-4 h-4 rounded text-primary focus:ring-primary" />
@@ -796,6 +506,69 @@ export default function AdminSettingsScreen() {
                 <button type="submit" className="px-space-md py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md font-semibold hover:bg-on-primary-fixed-variant">Simpan Akun</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* PIN Set Modal */}
+      {isPinModalOpen && pinTarget && (
+        <div className="fixed inset-0 z-50 bg-on-surface/40 backdrop-blur-sm flex items-center justify-center p-space-md">
+          <div className="w-full max-w-sm rounded-2xl bg-surface-container-lowest shadow-xl overflow-hidden flex flex-col">
+            <div className="p-space-md bg-surface-container-low flex items-center justify-between border-b border-surface-container-high">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[22px]">key</span>
+                <span className="font-headline-sm text-headline-sm text-on-surface">Set PIN Kasir</span>
+              </div>
+              <button onClick={() => setIsPinModalOpen(false)} className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container">
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+            <div className="p-space-md flex flex-col gap-space-sm">
+              <p className="font-body-md text-body-md text-on-surface-variant">
+                Atur PIN baru untuk <strong className="text-on-surface">{pinTarget.name}</strong>. PIN digunakan untuk login kasir dan absensi.
+              </p>
+              <div className="flex flex-col gap-1">
+                <label className="font-label-sm text-label-sm text-on-surface-variant">PIN Baru (6 Angka)</label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  pattern="\d{6}"
+                  placeholder="Contoh: 123456"
+                  value={newPin}
+                  onChange={e => { setNewPin(e.target.value.replace(/\D/g, '').substring(0, 6)); setPinError(''); }}
+                  className="w-full p-3 rounded-xl bg-surface-container-low text-on-surface font-mono text-xl text-center tracking-[0.5em] focus:outline-none focus:bg-surface-container letter-spacing-widest"
+                  autoFocus
+                />
+                {/* PIN strength dots */}
+                <div className="flex gap-2 justify-center mt-1">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className={`w-3 h-3 rounded-full transition-all ${i < newPin.length ? 'bg-primary scale-110' : 'bg-surface-variant'}`}></div>
+                  ))}
+                </div>
+                {pinError && (
+                  <p className="font-label-sm text-label-sm text-error mt-1 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[14px]">error</span>
+                    {pinError}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="p-space-md bg-surface-container-low flex justify-end gap-space-xs border-t border-surface-container-high">
+              <button type="button" onClick={() => handleClearPin(pinTarget)} className="px-space-md py-2 rounded-lg bg-error-container text-on-error-container font-label-md text-label-md hover:opacity-90 flex items-center gap-1">
+                <span className="material-symbols-outlined text-[16px]">lock_open</span>
+                Hapus PIN
+              </button>
+              <button type="button" onClick={() => setIsPinModalOpen(false)} className="px-space-md py-2 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high">Batal</button>
+              <button
+                type="button"
+                onClick={handlePinSave}
+                disabled={newPin.length !== 6 || pinSaving}
+                className="px-space-md py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md font-semibold hover:opacity-90 disabled:opacity-40 flex items-center gap-1"
+              >
+                {pinSaving ? <><span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span> Menyimpan...</> : 'Simpan PIN'}
+              </button>
+            </div>
           </div>
         </div>
       )}

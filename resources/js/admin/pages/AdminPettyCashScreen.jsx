@@ -22,6 +22,7 @@ export default function AdminPettyCashScreen() {
   };
 
   const [transactions, setTransactions] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
@@ -60,8 +61,20 @@ export default function AdminPettyCashScreen() {
     }
   };
 
+  const fetchBranches = async () => {
+    try {
+      const res = await window.apiClient.get('/branches');
+      if (res.status === 'success') {
+        setBranches(res.data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchData();
+    fetchBranches();
   }, []);
 
   const totalPengeluaran = transactions.reduce((sum, item) => sum + item.rawAmount, 0);
@@ -106,7 +119,7 @@ export default function AdminPettyCashScreen() {
             <span className="inline-block w-2 h-2 rounded-full bg-primary animate-pulse"></span>
             <span>AUDIT REAL-TIME KAS KECIL OPERASIONAL</span>
             <span>•</span>
-            <span className="text-primary font-semibold">4 CABANG TERMONITOR</span>
+            <span className="text-primary font-semibold">{branches.length || 4} CABANG TERMONITOR</span>
           </div>
           <h1 className="font-headline-md text-headline-md text-on-surface tracking-tight mt-0.5">Laporan Kas Kecil (Petty Cash)</h1>
           <p className="font-body-md text-body-md text-on-surface-variant">Pengawasan pengeluaran darurat, pembelian es & gas, serta audit struk transaksi harian kasir.</p>
@@ -131,211 +144,6 @@ export default function AdminPettyCashScreen() {
         </div>
       </div>
 
-      {/* Primary Financial Metrics Mosaic */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter-desktop mt-space-sm">
-        {/* Card 1: Total Pengeluaran */}
-        <div className="relative overflow-hidden p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col justify-between">
-          <div className="flex items-start justify-between">
-            <div className="flex flex-col">
-              <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Total Kas Keluar Bulan Ini</span>
-              <span className="font-headline-kpi text-headline-kpi text-on-surface mt-1">Rp {totalPengeluaran.toLocaleString('id-ID')}</span>
-            </div>
-            <div className="w-10 h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-primary">
-              <span className="material-symbols-outlined text-[22px]">payments</span>
-            </div>
-          </div>
-          <div className="mt-space-md pt-space-xs flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-on-surface-variant font-body-table text-body-table">
-              <span className="material-symbols-outlined text-[15px] text-tertiary">store</span>
-              <span>Rata-rata <strong className="text-on-surface font-semibold">Rp 1.550.000</strong> / cabang</span>
-            </div>
-            <span className="px-2 py-0.5 rounded-full bg-surface-container text-on-primary-container font-label-sm text-label-sm">4 Cabang Aktif</span>
-          </div>
-        </div>
-        {/* Card 2: Kategori Terbesar */}
-        <div className="relative overflow-hidden p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col justify-between">
-          <div className="flex items-start justify-between">
-            <div className="flex flex-col">
-              <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Beban Terbesar (39.5%)</span>
-              <span className="font-headline-kpi text-headline-kpi text-primary mt-1">Rp 2.450.000</span>
-            </div>
-            <div className="w-10 h-10 rounded-lg bg-primary-fixed flex items-center justify-center text-on-primary-fixed-variant">
-              <span className="material-symbols-outlined text-[22px]">propane_tank</span>
-            </div>
-          </div>
-          <div className="mt-space-md pt-space-xs flex items-center justify-between">
-            <span className="font-body-table text-body-table text-on-surface-variant">Kategori: <strong className="text-on-surface font-medium">Gas Elpiji 12kg & 3kg</strong></span>
-            <span className="px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm">Beban Utama Dapur</span>
-          </div>
-        </div>
-        {/* Card 3: Saldo Kas Tersisa & Warning */}
-        <div className="relative overflow-hidden p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col justify-between">
-          <div className="flex items-start justify-between">
-            <div className="flex flex-col">
-              <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Saldo Kas Tersisa (4 Toko)</span>
-              <span className="font-headline-kpi text-headline-kpi text-on-surface mt-1">Rp 1.800.000</span>
-            </div>
-            <div className="w-10 h-10 rounded-lg bg-error-container flex items-center justify-center text-error">
-              <span className="material-symbols-outlined text-[22px]">warning</span>
-            </div>
-          </div>
-          <div className="mt-space-md pt-space-xs flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-error font-body-table text-body-table font-semibold">
-              <span className="w-2 h-2 rounded-full bg-error animate-ping"></span>
-              <span>Perlu top-up: Cabang Kemang</span>
-            </div>
-            <button onClick={() => setIsTopupModalOpen(true)} className="text-primary hover:underline font-label-sm text-label-sm font-semibold">Top Up Sekarang →</button>
-          </div>
-        </div>
-      </div>
-
-      {/* Middle Grid: Category Breakdown & Operational Alert */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter-desktop mt-space-md">
-        {/* Category Donut Breakdown & Legend */}
-        <div className="lg:col-span-8 p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col justify-between">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-space-xs gap-space-xs">
-            <div>
-              <span className="font-headline-sm text-headline-sm text-on-surface">Distribusi Pengeluaran Kasir</span>
-              <p className="font-body-table text-body-table text-on-surface-variant">Breakdown peruntukan dana darurat dan operational restock cabang</p>
-            </div>
-            <div className="flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm bg-surface-container px-2.5 py-1 rounded-full">
-              <span className="material-symbols-outlined text-[14px]">calendar_today</span>
-              <span>Bulan Berjalan (1 - 24 Okt 2024)</span>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-space-md items-center mt-space-sm">
-            {/* SVG Donut Chart */}
-            <div className="md:col-span-5 flex flex-col items-center justify-center relative py-space-sm">
-              <svg className="w-44 h-44 -rotate-90 transform" viewBox="0 0 160 160">
-                <circle cx="80" cy="80" fill="none" r="62" stroke="#f6e5da" strokeWidth="20"></circle>
-                <circle className="transition-all hover:opacity-90" cx="80" cy="80" fill="none" r="62" stroke="#8c5000" strokeDasharray="153.8 389.5" strokeDashoffset="0" strokeWidth="20"></circle>
-                <circle className="transition-all hover:opacity-90" cx="80" cy="80" fill="none" r="62" stroke="#d98e3f" strokeDasharray="85.7 389.5" strokeDashoffset="-153.8" strokeWidth="20"></circle>
-                <circle className="transition-all hover:opacity-90" cx="80" cy="80" fill="none" r="62" stroke="#496729" strokeDasharray="72.0 389.5" strokeDashoffset="-239.5" strokeWidth="20"></circle>
-                <circle className="transition-all hover:opacity-90" cx="80" cy="80" fill="none" r="62" stroke="#fdc74b" strokeDasharray="46.7 389.5" strokeDashoffset="-311.5" strokeWidth="20"></circle>
-                <circle className="transition-all hover:opacity-90" cx="80" cy="80" fill="none" r="62" stroke="#524438" strokeDasharray="31.2 389.5" strokeDashoffset="-358.2" strokeWidth="20"></circle>
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                <span className="font-headline-sm text-headline-sm text-on-surface font-bold">100%</span>
-                <span className="font-label-sm text-label-sm text-on-surface-variant">Alokasi Dana</span>
-              </div>
-            </div>
-            {/* Legend Bars */}
-            <div className="md:col-span-7 flex flex-col gap-2.5">
-              <div className="flex items-center justify-between p-2 rounded-lg bg-surface hover:bg-surface-container transition-colors">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-primary"></span>
-                  <span className="font-body-table text-body-table font-medium text-on-surface">Gas Elpiji (12kg / 3kg)</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-body-table text-body-table text-on-surface-variant">Rp 2.450.000</span>
-                  <span className="font-label-md text-label-md font-bold text-primary">39.5%</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-surface hover:bg-surface-container transition-colors">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-primary-container"></span>
-                  <span className="font-body-table text-body-table font-medium text-on-surface">Es Batu Kristal Harian</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-body-table text-body-table text-on-surface-variant">Rp 1.364.000</span>
-                  <span className="font-label-md text-label-md font-bold text-on-primary-container">22.0%</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-surface hover:bg-surface-container transition-colors">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-tertiary"></span>
-                  <span className="font-body-table text-body-table font-medium text-on-surface">Kebersihan & Kantong Kresek</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-body-table text-body-table text-on-surface-variant">Rp 1.147.000</span>
-                  <span className="font-label-md text-label-md font-bold text-tertiary">18.5%</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-surface hover:bg-surface-container transition-colors">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-secondary-container"></span>
-                  <span className="font-body-table text-body-table font-medium text-on-surface">Bahan Baku Darurat</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-body-table text-body-table text-on-surface-variant">Rp 744.000</span>
-                  <span className="font-label-md text-label-md font-bold text-secondary">12.0%</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-surface hover:bg-surface-container transition-colors">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-on-surface-variant"></span>
-                  <span className="font-body-table text-body-table font-medium text-on-surface">Retribusi Lingkungan & Parkir</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-body-table text-body-table text-on-surface-variant">Rp 495.000</span>
-                  <span className="font-label-md text-label-md font-bold text-on-surface-variant">8.0%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Side: Branch Balance Snapshot */}
-        <div className="lg:col-span-4 flex flex-col gap-space-sm">
-          <div className="p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col flex-1 justify-between">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="font-headline-sm text-headline-sm text-on-surface">Status Kasir 4 Cabang</span>
-                <span className="material-symbols-outlined text-[18px] text-on-surface-variant">pie_chart</span>
-              </div>
-              <p className="font-body-table text-body-table text-on-surface-variant mt-0.5">Saldo laci aktual kasir per malam ini</p>
-              
-              <div className="mt-space-md flex flex-col gap-3">
-                <div>
-                  <div className="flex justify-between text-body-table mb-1">
-                    <span className="font-semibold text-on-surface">Cabang Tebet</span>
-                    <span className="text-on-surface font-semibold">Rp 720.000 <span className="text-on-surface-variant font-normal">/ 1.0M</span></span>
-                  </div>
-                  <div className="w-full h-2 bg-surface-container rounded-full overflow-hidden">
-                    <div className="h-full bg-tertiary rounded-full" style={{ width: '72%' }}></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-body-table mb-1">
-                    <span className="font-semibold text-on-surface">Cabang Bintaro</span>
-                    <span className="text-on-surface font-semibold">Rp 580.000 <span className="text-on-surface-variant font-normal">/ 1.0M</span></span>
-                  </div>
-                  <div className="w-full h-2 bg-surface-container rounded-full overflow-hidden">
-                    <div className="h-full bg-tertiary rounded-full" style={{ width: '58%' }}></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-body-table mb-1">
-                    <span className="font-semibold text-on-surface">Cabang BSD</span>
-                    <span className="text-on-surface font-semibold">Rp 390.000 <span className="text-on-surface-variant font-normal">/ 1.0M</span></span>
-                  </div>
-                  <div className="w-full h-2 bg-surface-container rounded-full overflow-hidden">
-                    <div className="h-full bg-primary rounded-full" style={{ width: '39%' }}></div>
-                  </div>
-                </div>
-                <div className="p-2 rounded-lg bg-error-container/40">
-                  <div className="flex justify-between text-body-table mb-1">
-                    <span className="font-semibold text-error flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[14px]">warning</span> Cabang Kemang
-                    </span>
-                    <span className="text-error font-bold">Rp 110.000 <span className="text-on-surface-variant font-normal">/ 1.0M</span></span>
-                  </div>
-                  <div className="w-full h-2 bg-error-container rounded-full overflow-hidden">
-                    <div className="h-full bg-error rounded-full" style={{ width: '11%' }}></div>
-                  </div>
-                  <span className="font-label-sm text-label-sm text-error block mt-1">Kritis: Sisa kas di bawah limit aman (Rp 250k)</span>
-                </div>
-              </div>
-            </div>
-            
-            <button onClick={() => setIsTopupModalOpen(true)} className="w-full mt-space-sm py-2 px-3 rounded-lg bg-surface-container-high hover:bg-surface-container text-primary font-label-md text-label-md font-semibold flex items-center justify-center gap-1.5 transition-colors">
-              <span className="material-symbols-outlined text-[16px]">add_circle</span>
-              Top-Up Cabang Kemang Sekarang
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Filter Strip */}
       <div className="p-space-sm rounded-xl bg-surface-container-lowest shadow-sm mt-space-md flex flex-wrap items-center justify-between gap-space-sm">
         <div className="flex flex-wrap items-center gap-space-xs">
@@ -343,11 +151,10 @@ export default function AdminPettyCashScreen() {
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md cursor-pointer hover:bg-surface-container">
             <span className="material-symbols-outlined text-[18px] text-primary">storefront</span>
             <select className="bg-transparent text-on-surface font-medium focus:outline-none cursor-pointer">
-              <option value="all">Semua Cabang (4)</option>
-              <option value="tebet">Cabang Tebet</option>
-              <option value="kemang">Cabang Kemang</option>
-              <option value="bsd">Cabang BSD</option>
-              <option value="bintaro">Cabang Bintaro</option>
+              <option value="all">Semua Cabang ({branches.length || 4})</option>
+              {branches.map(b => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
             </select>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md cursor-pointer hover:bg-surface-container">
