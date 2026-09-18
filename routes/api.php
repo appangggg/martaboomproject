@@ -59,6 +59,7 @@ Route::get('/admin/dashboard', [DashboardController::class, 'getStats']);
 Route::apiResource('/admin/branches', \App\Http\Controllers\BranchController::class);
 Route::apiResource('/admin/products', \App\Http\Controllers\AdminProductController::class);
 Route::apiResource('/admin/employees', \App\Http\Controllers\EmployeeController::class);
+Route::apiResource('/admin/ingredients', \App\Http\Controllers\API\IngredientController::class);
 Route::get('/admin/transactions', [\App\Http\Controllers\AdminTransactionController::class, 'index']);
 Route::get('/admin/transactions/{id}', [\App\Http\Controllers\AdminTransactionController::class, 'show']);
 

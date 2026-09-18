@@ -6,6 +6,10 @@ export default function ProductScreen() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   
+  // Filter state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+  
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -22,8 +26,8 @@ export default function ProductScreen() {
     is_active: 1
   });
 
-  const fetchProducts = async () => {
-    setLoading(true);
+  const fetchProducts = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const res = await axios.get('/api/admin/products');
       if (res.data.status === 'success') {
@@ -37,7 +41,7 @@ export default function ProductScreen() {
     } catch (err) {
       console.error("Error fetching products", err);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -45,15 +49,21 @@ export default function ProductScreen() {
     fetchProducts();
   }, []);
 
+  const getImageUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http') || url.startsWith('data:')) return url;
+    return `/storage/${url}`;
+  };
+
   const handleOpenModal = (product = null) => {
     setImageFile(null);
     if (product) {
       setEditingProduct(product);
-      setImagePreview(product.image_url || null);
+      setImagePreview(getImageUrl(product.image_url));
       setFormData({
         name: product.name,
         category_id: product.category_id,
-        base_price: product.base_price,
+        base_price: product.base_price ? parseInt(product.base_price).toString() : '',
         description: product.description || '',
         type: product.type || 'main',
         is_active: product.is_active ? 1 : 0
@@ -90,6 +100,11 @@ export default function ProductScreen() {
     }
   };
 
+  const handlePriceChange = (e) => {
+    const rawValue = e.target.value.replace(/\D/g, '');
+    setFormData({ ...formData, base_price: rawValue });
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
@@ -116,10 +131,17 @@ export default function ProductScreen() {
       }
       
       handleCloseModal();
-      fetchProducts();
+      fetchProducts(false);
     } catch (err) {
       console.error("Error saving product", err);
-      alert("Gagal menyimpan produk.");
+      if (err.response && err.response.data && err.response.data.errors) {
+        const errorMessages = Object.values(err.response.data.errors).flat().join('\n');
+        alert("Gagal menyimpan produk:\n" + errorMessages);
+      } else if (err.response && err.response.data && err.response.data.message) {
+        alert("Gagal menyimpan produk:\n" + err.response.data.message);
+      } else {
+        alert("Gagal menyimpan produk. Periksa kembali isian Anda.");
+      }
     }
   };
 
@@ -127,7 +149,7 @@ export default function ProductScreen() {
     if (window.confirm("Apakah Anda yakin ingin menghapus produk ini?")) {
       try {
         await axios.delete(`/api/admin/products/${id}`);
-        fetchProducts();
+        fetchProducts(false);
       } catch (err) {
         console.error("Error deleting product", err);
         alert("Gagal menghapus produk.");
@@ -135,59 +157,98 @@ export default function ProductScreen() {
     }
   };
 
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = filterCategory === '' || product.category_id.toString() === filterCategory;
+    return matchesSearch && matchesCategory;
+  });
+
   return (
     <div className="flex flex-col w-full pb-8">
       {/* Header Area */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-6 gap-4">
         <div>
           <h1 className="font-headline-md text-headline-md text-on-surface font-bold">Daftar Produk & Menu</h1>
           <p className="font-body-md text-body-md text-on-surface-variant mt-0.5">Kelola produk, harga, dan gambar menu yang tampil di kasir</p>
         </div>
         
-        <button 
-          onClick={() => handleOpenModal()}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-on-primary hover:opacity-90 transition-colors font-label-md text-label-md font-semibold shadow-sm"
-        >
-          <span className="material-symbols-outlined text-[18px]">add_circle</span>
-          Tambah Produk
-        </button>
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+          {/* Search Box */}
+          <div className="relative w-full sm:w-64">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+            <input 
+              type="text" 
+              placeholder="Cari produk..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 rounded-lg bg-white border border-surface-container focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm transition-all"
+            />
+          </div>
+          
+          {/* Category Filter */}
+          <select 
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="w-full sm:w-48 px-3 py-2 rounded-lg bg-white border border-surface-container focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm transition-all"
+          >
+            <option value="">Semua Kategori</option>
+            {categories.map(cat => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
+          </select>
+
+          <button 
+            onClick={() => handleOpenModal()}
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-on-primary hover:opacity-90 transition-colors font-label-md text-label-md font-semibold shadow-sm w-full sm:w-auto whitespace-nowrap"
+          >
+            <span className="material-symbols-outlined text-[18px]">add_circle</span>
+            Tambah Produk
+          </button>
+        </div>
       </div>
 
       <div className="rounded-xl bg-surface-container-lowest shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-on-surface-variant">
-            <span className="material-symbols-outlined text-[40px] block mb-2 animate-spin">progress_activity</span>
-            Memuat data produk...
+          <div className="p-12 flex justify-center text-on-surface-variant">
+            <span className="material-symbols-outlined text-[40px] animate-spin">progress_activity</span>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">
-                  <th className="px-4 py-3.5">Gambar</th>
-                  <th className="px-4 py-3.5">Nama Produk</th>
-                  <th className="px-4 py-3.5">Kategori</th>
-                  <th className="px-4 py-3.5">Tipe</th>
-                  <th className="px-4 py-3.5 text-right">Harga</th>
-                  <th className="px-4 py-3.5 text-center">Status</th>
-                  <th className="px-4 py-3.5 text-right">Aksi</th>
+                <tr className="bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider border-b border-surface-container">
+                  <th className="px-4 py-3.5 text-center w-24">Gambar</th>
+                  <th className="px-4 py-3.5 text-left">Nama Produk</th>
+                  <th className="px-4 py-3.5 text-left w-36">Kategori</th>
+                  <th className="px-4 py-3.5 text-center w-24">Tipe</th>
+                  <th className="px-4 py-3.5 text-left w-36">Harga</th>
+                  <th className="px-4 py-3.5 text-center w-32">Status</th>
+                  <th className="px-4 py-3.5 text-center w-28">Aksi</th>
                 </tr>
               </thead>
               <tbody className="font-body-md text-body-md text-on-surface">
-                {products.length === 0 ? (
+                {filteredProducts.length === 0 ? (
                   <tr>
                     <td colSpan="7" className="p-12 text-center text-on-surface-variant">
                       <span className="material-symbols-outlined text-[40px] block mb-2 opacity-40">restaurant_menu</span>
-                      Belum ada produk. Klik "Tambah Produk" untuk memulai.
+                      {products.length === 0 ? 'Belum ada produk. Klik "Tambah Produk" untuk memulai.' : 'Produk tidak ditemukan.'}
                     </td>
                   </tr>
                 ) : (
-                  products.map(product => (
-                    <tr key={product.id} className="border-t border-surface-container hover:bg-surface-container/30 transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-surface-container flex items-center justify-center shadow-sm">
+                  filteredProducts.map(product => (
+                    <tr key={product.id} className="border-b border-surface-container hover:bg-surface-container/30 transition-colors last:border-0">
+                      <td className="px-4 py-3 text-center">
+                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-surface-container flex items-center justify-center shadow-sm mx-auto">
                           {product.image_url ? (
-                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                            <img 
+                              src={getImageUrl(product.image_url)} 
+                              alt={product.name} 
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = 'https://placehold.co/100x100?text=No+Image';
+                              }}
+                            />
                           ) : (
                             <span className="material-symbols-outlined text-on-surface-variant text-[20px]">image</span>
                           )}
@@ -198,21 +259,23 @@ export default function ProductScreen() {
                         {product.description && <p className="font-label-sm text-label-sm text-on-surface-variant mt-0.5 line-clamp-1">{product.description}</p>}
                       </td>
                       <td className="px-4 py-3 text-on-surface-variant">{product.category ? product.category.name : '—'}</td>
-                      <td className="px-4 py-3 capitalize">
-                        <span className="px-2 py-0.5 rounded bg-surface-container font-label-sm text-label-sm text-on-surface">{product.type || 'main'}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold text-on-surface">Rp {product.base_price.toLocaleString('id-ID')}</td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`px-2.5 py-1 rounded-full font-label-sm text-label-sm font-semibold ${product.is_active ? 'bg-tertiary-fixed text-on-tertiary-fixed-variant' : 'bg-surface-container text-on-surface-variant'}`}>
+                        <span className="px-2 py-0.5 rounded bg-surface-container font-label-sm text-label-sm text-on-surface font-medium">
+                          {{'main': 'Utama', 'addon': 'Topping', 'variant': 'Varian'}[product.type || 'main']}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-left font-bold text-on-surface whitespace-nowrap">Rp {parseFloat(product.base_price).toLocaleString('id-ID')}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2.5 py-1 rounded-full font-label-sm text-label-sm font-semibold whitespace-nowrap ${product.is_active ? 'bg-tertiary-fixed text-on-tertiary-fixed-variant' : 'bg-surface-container text-on-surface-variant'}`}>
                           {product.is_active ? 'Aktif' : 'Non-aktif'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => handleOpenModal(product)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors">
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button onClick={() => handleOpenModal(product)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Edit">
                             <span className="material-symbols-outlined text-[18px]">edit</span>
                           </button>
-                          <button onClick={() => handleDelete(product.id)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-error hover:bg-error-container transition-colors">
+                          <button onClick={() => handleDelete(product.id)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-error hover:bg-error-container transition-colors" title="Hapus">
                             <span className="material-symbols-outlined text-[18px]">delete</span>
                           </button>
                         </div>
@@ -241,7 +304,7 @@ export default function ProductScreen() {
             
             <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4 overflow-y-auto">
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-slate-700">Nama Produk</label>
+                <label className="text-sm font-semibold text-slate-700">Nama Produk <span className="text-red-500">*</span></label>
                 <input 
                   type="text" 
                   name="name" 
@@ -254,7 +317,7 @@ export default function ProductScreen() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-slate-700">Kategori</label>
+                <label className="text-sm font-semibold text-slate-700">Kategori <span className="text-red-500">*</span></label>
                 <select 
                   name="category_id" 
                   value={formData.category_id} 
@@ -270,35 +333,37 @@ export default function ProductScreen() {
               </div>
               
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-slate-700">Harga Dasar (Rp)</label>
+                <label className="text-sm font-semibold text-slate-700">Harga Dasar (Rp) <span className="text-red-500">*</span></label>
                 <input 
-                  type="number" 
+                  type="text" 
                   name="base_price" 
-                  value={formData.base_price} 
-                  onChange={handleChange} 
+                  value={formData.base_price === '' || formData.base_price === null ? '' : parseInt(formData.base_price).toLocaleString('id-ID')} 
+                  onChange={handlePriceChange} 
                   required
-                  min="0"
                   className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-semibold text-slate-700">Tipe Produk</label>
+                  <label className="text-sm font-semibold text-slate-700">Tipe Produk <span className="text-red-500">*</span></label>
                   <select 
                     name="type" 
                     value={formData.type} 
                     onChange={handleChange}
-                    className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                    className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm mb-1"
                   >
-                    <option value="main">Utama</option>
-                    <option value="addon">Topping (Addon)</option>
-                    <option value="variant">Varian</option>
+                    <option value="main">Utama (Menu Standar)</option>
+                    <option value="addon">Topping (Tambahan)</option>
+                    <option value="variant">Varian (Ukuran/Rasa)</option>
                   </select>
+                  <p className="text-[11px] text-gray-500 leading-tight">
+                    Pisahkan mana menu yang dijual langsung & mana yang hanya jadi pelengkap.
+                  </p>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-semibold text-slate-700">Status</label>
+                  <label className="text-sm font-semibold text-slate-700">Status <span className="text-red-500">*</span></label>
                   <select 
                     name="is_active" 
                     value={formData.is_active} 

@@ -27,7 +27,7 @@ class AdminProductController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'category_id' => 'required|exists:categories,id',
-            'base_price' => 'required|numeric|min:0',
+            'base_price' => 'required|numeric|min:0|max:999999999',
             'is_active' => 'boolean',
             'description' => 'nullable|string',
             'type' => 'required|in:main,addon,variant',
@@ -70,7 +70,7 @@ class AdminProductController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'category_id' => 'sometimes|required|exists:categories,id',
-            'base_price' => 'sometimes|required|numeric|min:0',
+            'base_price' => 'sometimes|required|numeric|min:0|max:999999999',
             'is_active' => 'boolean',
             'description' => 'nullable|string',
             'type' => 'sometimes|required|in:main,addon,variant',

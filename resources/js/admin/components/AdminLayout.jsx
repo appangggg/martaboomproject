@@ -1,7 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 
 export default function AdminLayout() {
+  const [openMenus, setOpenMenus] = useState({
+    menu: true,
+    keuangan: true,
+    sistem: true,
+    pengaturan: true,
+  });
+
+  const toggleMenu = (key) => {
+    setOpenMenus(prev => ({ ...prev, [key]: !prev[key] }));
+  };
   return (
     <div className="bg-[#F8F9FA] font-body-md text-body-md text-on-surface antialiased flex h-screen w-full overflow-hidden">
       {/* Sidebar */}
@@ -29,14 +39,18 @@ export default function AdminLayout() {
 
             {/* ATUR MENU */}
             <div className="mb-4">
-              <div className="flex items-center justify-between px-4 py-2 text-xs font-bold text-gray-400 tracking-wider mb-1">
+              <div 
+                className="flex items-center justify-between px-4 py-2 text-xs font-bold text-gray-500 tracking-wider mb-1 cursor-pointer hover:text-primary transition-colors"
+                onClick={() => toggleMenu('menu')}
+              >
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-[16px]">menu_open</span>
                   <span>ATUR MENU</span>
                 </div>
-                <span className="material-symbols-outlined text-[16px]">expand_less</span>
+                <span className={`material-symbols-outlined text-[16px] transition-transform duration-200 ${!openMenus.menu ? 'rotate-180' : ''}`}>expand_less</span>
               </div>
               
+              <div className={`overflow-hidden transition-all duration-300 ${openMenus.menu ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
               <NavLink
                 to="/admin/products"
                 className={({ isActive }) =>
@@ -47,6 +61,18 @@ export default function AdminLayout() {
               >
                 <span className="material-symbols-outlined text-[18px]">inventory_2</span>
                 <span className="text-sm">Produk</span>
+              </NavLink>
+              
+              <NavLink
+                to="/admin/ingredients"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-2 rounded-lg transition-all ml-2 ${
+                    isActive ? 'bg-primary/10 text-primary font-semibold' : 'text-gray-600 hover:bg-gray-50'
+                  }`
+                }
+              >
+                <span className="material-symbols-outlined text-[18px]">kitchen</span>
+                <span className="text-sm">Bahan Baku</span>
               </NavLink>
 
               <NavLink
@@ -60,18 +86,23 @@ export default function AdminLayout() {
                 <span className="material-symbols-outlined text-[18px]">shelves</span>
                 <span className="text-sm">Stok</span>
               </NavLink>
+              </div>
             </div>
 
             {/* KEUANGAN */}
             <div className="mb-4">
-              <div className="flex items-center justify-between px-4 py-2 text-xs font-bold text-primary tracking-wider mb-1">
+              <div 
+                className="flex items-center justify-between px-4 py-2 text-xs font-bold text-gray-500 tracking-wider mb-1 cursor-pointer hover:text-primary transition-colors"
+                onClick={() => toggleMenu('keuangan')}
+              >
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-[16px]">payments</span>
                   <span>KEUANGAN</span>
                 </div>
-                <span className="material-symbols-outlined text-[16px]">expand_less</span>
+                <span className={`material-symbols-outlined text-[16px] transition-transform duration-200 ${!openMenus.keuangan ? 'rotate-180' : ''}`}>expand_less</span>
               </div>
               
+              <div className={`overflow-hidden transition-all duration-300 ${openMenus.keuangan ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
               <NavLink
                 to="/admin/daily-report"
                 className={({ isActive }) =>
@@ -95,17 +126,23 @@ export default function AdminLayout() {
                 <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
                 <span className="text-sm">Sesi Kas & Petty Cash</span>
               </NavLink>
+              </div>
             </div>
 
             {/* PENGATURAN */}
             <div className="mb-4">
-              <div className="flex items-center justify-between px-4 py-2 text-xs font-bold text-gray-400 tracking-wider mb-1">
+              <div 
+                className="flex items-center justify-between px-4 py-2 text-xs font-bold text-gray-500 tracking-wider mb-1 cursor-pointer hover:text-primary transition-colors"
+                onClick={() => toggleMenu('sistem')}
+              >
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-[16px]">admin_panel_settings</span>
                   <span>SISTEM</span>
                 </div>
+                <span className={`material-symbols-outlined text-[16px] transition-transform duration-200 ${!openMenus.sistem ? 'rotate-180' : ''}`}>expand_less</span>
               </div>
               
+              <div className={`overflow-hidden transition-all duration-300 ${openMenus.sistem ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
               <NavLink
                 to="/admin/employee"
                 className={({ isActive }) =>
@@ -129,18 +166,23 @@ export default function AdminLayout() {
                 <span className="material-symbols-outlined text-[18px]">store</span>
                 <span className="text-sm">Cabang</span>
               </NavLink>
+              </div>
             </div>
 
             {/* PENGATURAN ADMIN */}
             <div>
-              <div className="flex items-center justify-between px-4 py-2 text-xs font-bold text-gray-400 tracking-wider mb-1">
+              <div 
+                className="flex items-center justify-between px-4 py-2 text-xs font-bold text-gray-500 tracking-wider mb-1 cursor-pointer hover:text-primary transition-colors"
+                onClick={() => toggleMenu('pengaturan')}
+              >
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-[16px]">settings</span>
                   <span>PENGATURAN ADMIN</span>
                 </div>
+                <span className={`material-symbols-outlined text-[16px] transition-transform duration-200 ${!openMenus.pengaturan ? 'rotate-180' : ''}`}>expand_less</span>
               </div>
 
-              <NavLink
+              <div className={`overflow-hidden transition-all duration-300 ${openMenus.pengaturan ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>              <NavLink
                 to="/admin/settings"
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-4 py-2 rounded-lg transition-all ml-2 ${
@@ -151,6 +193,7 @@ export default function AdminLayout() {
                 <span className="material-symbols-outlined text-[18px]">settings</span>
                 <span className="text-sm">Pengaturan</span>
               </NavLink>
+              </div>
             </div>
           </nav>
         </div>

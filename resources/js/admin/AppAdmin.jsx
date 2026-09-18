@@ -8,6 +8,7 @@ import AdminLayout from './components/AdminLayout';
 import AdminLoginScreen from './pages/AdminLoginScreen';
 import DashboardScreen from './pages/DashboardScreen';
 import ProductScreen from './pages/ProductScreen';
+import IngredientScreen from './pages/IngredientScreen';
 import StockOpnameWasteScreen from './pages/StockOpnameWasteScreen';
 import DailyReportScreen from './pages/DailyReportScreen';
 import EmployeeAttendanceScreen from './pages/EmployeeAttendanceScreen';
@@ -28,6 +29,7 @@ export default function AppAdmin() {
                     <Route index element={<Navigate to="/admin/dashboard" replace />} />
                     <Route path="dashboard" element={<DashboardScreen />} />
                     <Route path="products" element={<ProductScreen />} />
+                    <Route path="ingredients" element={<IngredientScreen />} />
                     <Route path="stock" element={<StockOpnameWasteScreen />} />
                     <Route path="daily-report" element={<DailyReportScreen />} />
                     <Route path="pettycash" element={<AdminPettyCashScreen />} />

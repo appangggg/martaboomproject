@@ -57,4 +57,26 @@ class KitchenController extends Controller
             'data' => $recipes
         ]);
     }
+
+    public function inventory(Request $request)
+    {
+        $branchId = $request->query('branch_id');
+
+        $query = \App\Models\Ingredient::query();
+        
+        if ($branchId && $branchId !== 'all') {
+            $query->with(['stocks' => function($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            }]);
+        } else {
+            $query->with('stocks');
+        }
+
+        $ingredients = $query->orderBy('name')->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $ingredients
+        ]);
+    }
 }
