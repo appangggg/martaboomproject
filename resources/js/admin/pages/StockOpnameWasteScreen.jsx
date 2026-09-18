@@ -46,8 +46,8 @@ export default function StockOpnameWasteScreen() {
   const loadBranches = async () => {
     try {
       const res = await window.apiClient.get('/admin/branches');
-      // AdminResource usually returns data inside data, but we handle both
-      const branchData = res.data?.data || res.data || [];
+      // BranchController returns the array directly, so res might be the array itself
+      const branchData = Array.isArray(res) ? res : (res.data?.data || res.data || []);
       setBranches(branchData);
     } catch (error) {
       console.error('Error loading branches:', error);
